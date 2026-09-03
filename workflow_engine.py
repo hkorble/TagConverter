@@ -20,6 +20,7 @@ from workflow_common import (
     apply_mapping_sheet,
     clean_workspace_artifacts,
     extract_groups,
+    find_accoreconsole,
     format_mapping,
     is_placeholder,
     unpack_tag,
@@ -38,27 +39,19 @@ def resolve_drawing_path(raw_path: str) -> Path:
         return p.resolve()
 
     filename = p.name
+    candidates: list[Path] = []
 
-    # 1. Check User's Downloads directory directly
-    downloads_file = Path.home() / "Downloads" / filename
-    if downloads_file.is_file():
-        return downloads_file.resolve()
-
-    # 2. Check Project root & subdirectories recursively
+    downloads_dir = Path.home() / "Downloads"
     project_root = Path(__file__).resolve().parent
-    matches = [f for f in project_root.rglob(filename) if f.is_file()]
-    if matches:
-        return matches[0].resolve()
+    desktop_dir = Path.home() / "Desktop"
 
-    # 3. Check Downloads recursively
-    downloads_matches = [f for f in (Path.home() / "Downloads").rglob(filename) if f.is_file()]
-    if downloads_matches:
-        return downloads_matches[0].resolve()
+    for root_dir in (downloads_dir, project_root, desktop_dir):
+        if root_dir.is_dir():
+            candidates.extend([f for f in root_dir.rglob(filename) if f.is_file()])
 
-    # 4. Check Desktop recursively
-    desktop_matches = [f for f in (Path.home() / "Desktop").rglob(filename) if f.is_file()]
-    if desktop_matches:
-        return desktop_matches[0].resolve()
+    if candidates:
+        candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        return candidates[0].resolve()
 
     return p.resolve()
 
@@ -589,6 +582,19 @@ def _run_attsync(drawing: Path, script: Path, log: Log, pdf_path: Path | None = 
     for message in messages:
         log(message)
     if result.returncode:
+        log(f"AutoCAD COM ATTSYNC warning: {result.stderr.strip()}. Falling back to AutoCAD Core Console.")
+        executable = find_accoreconsole()
+        if executable:
+            attsync_scr = drawing.parent / f"attsync_{uuid.uuid4().hex[:8]}.scr"
+            attsync_scr.write_text(f'(setvar "SECURELOAD" 0)\n(command "ATTSYNC" "N" "*")\n(command "QSAVE")\nQUIT\n', encoding="utf-8")
+            res_ac = subprocess.run([executable, "/i", str(drawing), "/s", str(attsync_scr)], cwd=drawing.parent, capture_output=True)
+            try:
+                attsync_scr.unlink(missing_ok=True)
+            except Exception:
+                pass
+            if res_ac.returncode == 0:
+                log("AutoCAD Core Console ATTSYNC completed successfully.")
+                return
         detail = result.stderr.strip() or "The AutoCAD COM worker exited without details."
         raise RuntimeError(f"AutoCAD ATTSYNC failed: {detail}")
 
