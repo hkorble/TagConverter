@@ -1,0 +1,8 @@
+(setvar "SECURELOAD" 0)
+(command "_.attsync" "_Name" "dyn_instr shared disp")
+(command "_.attsync" "_Name" "Dyn_Discrete Instr")
+(command "_.attsync" "_Name" "dyn_instr plc")
+(command "_.attsync" "_Name" "dyn_meter")
+REGENALL
+QSAVE
+QUIT

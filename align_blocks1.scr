@@ -1,0 +1,21 @@
+(setvar "SECURELOAD" 0)
+(vl-load-com)
+(defun c:FixAlign (/ blocks item ent) 
+  (setq blocks (vla-get-Blocks (vla-get-ActiveDocument (vlax-get-acad-object)))) 
+  (foreach blkName '("dyn_instr shared disp" "Dyn_Discrete Instr" "dyn_instr plc" "dyn_meter") 
+    (setq item (vl-catch-all-apply 'vla-item (list blocks blkName))) 
+    (if (and item (not (vl-catch-all-error-p item))) 
+      (progn 
+        (vlax-for ent item 
+          (if (= (vla-get-ObjectName ent) "AcDbAttributeDefinition") 
+            (vl-catch-all-apply 'vla-put-Alignment (list ent acAlignmentMiddleCenter)) 
+          ) 
+        ) 
+      ) 
+    ) 
+  ) 
+)
+(c:FixAlign)
+REGENALL
+QSAVE
+QUIT
