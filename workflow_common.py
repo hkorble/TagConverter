@@ -143,6 +143,14 @@ def find_accoreconsole(paths: Iterable[str] = AUTOCAD_CORE_PATHS) -> str | None:
 
 
 def extract_groups(dwg_path: Path, base_dir: Path, lsp_path: Path, script_path: Path, log: Log = print) -> None:
+    header = ["GroupName", "Handle", "Layer", "TextContent", "X", "Y"]
+    for filename in ("autocad_groups.csv", "large_groups.csv"):
+        csv_file = base_dir / filename
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
+        with csv_file.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(header)
+
     executable = find_accoreconsole()
     if executable:
         log(f"AutoCAD Core Console: {executable}")
