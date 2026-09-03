@@ -18,6 +18,7 @@ import pandas as pd
 from config import WORKFLOW_CONFIG
 from workflow_common import (
     apply_mapping_sheet,
+    clean_workspace_artifacts,
     extract_groups,
     format_mapping,
     is_placeholder,
@@ -431,6 +432,8 @@ def prepare_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log =
 
     if not paths.dwg.is_file():
         raise FileNotFoundError(f"Drawing not found: {paths.dwg}")
+    log("00  Cleaning workspace artifacts to prevent cross-contamination")
+    clean_workspace_artifacts(paths.base_dir, preserve_mapping=False)
     log("01  Extracting tagged groups from the drawing")
     extract_groups(paths.dwg, paths.base_dir, paths.lisp, paths.script, log)
     log("02  Building the shared spatial registry")
@@ -485,6 +488,8 @@ def _finalize_workflow_single(workflow: str, paths: WorkflowPaths, log: Log = pr
     pdf_str = str(pdf_output.resolve()) if pdf_output.is_file() else None
     if pdf_str:
         pub_paths["pdf"] = pdf_str
+
+    clean_workspace_artifacts(paths.base_dir, preserve_mapping=True)
     log(f"Complete: DWG -> {paths.output}, PDF -> {pdf_output}")
     return {"mapped_rows": mapped, "phase": "complete", "paths": pub_paths, "pdf": pdf_str}
 
@@ -629,8 +634,18 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
     comtypes.CoInitialize()
     try:
         try:
-            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=10.0)
+            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=5.0)
             log("Connected to active AutoCAD session.")
+            idle_deadline = time.monotonic() + 15
+            while time.monotonic() < idle_deadline:
+                try:
+                    st = acad.GetAcadState()
+                    if bool(st.IsQuiescent):
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
+            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=60.0)
         except Exception:
             acad = comtypes.client.CreateObject("AutoCAD.Application")
             retry_com(lambda: setattr(acad, "Visible", False))
@@ -647,18 +662,17 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
             except Exception:
                 pass
 
-        # Wait for AutoCAD to become quiescent (idle) before opening document
-        idle_deadline = time.monotonic() + 60
-        while time.monotonic() < idle_deadline:
-            try:
-                st = retry_com(lambda: acad.GetAcadState(), timeout=5.0)
-                if bool(retry_com(lambda: st.IsQuiescent, timeout=5.0)):
-                    break
-            except Exception:
-                pass
-            time.sleep(1.0)
+            idle_deadline = time.monotonic() + 30
+            while time.monotonic() < idle_deadline:
+                try:
+                    st = retry_com(lambda: acad.GetAcadState(), timeout=5.0)
+                    if bool(retry_com(lambda: st.IsQuiescent, timeout=5.0)):
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
 
-        document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=90.0)
+            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=60.0)
 
         log("AutoCAD is idle; submitting ATTSYNC commands.")
         marker_lisp = marker.as_posix().replace('"', '\\"')
