@@ -604,7 +604,7 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
         -2147418105, 2147549191,  # RPC_E_SERVERFAULT
     }
 
-    def retry_com(action, timeout: float = 30.0):
+    def retry_com(action, timeout: float = 60.0):
         deadline = time.monotonic() + timeout
         while True:
             try:
@@ -617,7 +617,7 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
                 is_retryable = (code in retryable) or ("rejected by callee" in err_str) or ("retrylater" in err_str) or ("busy" in err_str)
                 if not is_retryable or time.monotonic() >= deadline:
                     raise
-                time.sleep(0.5)
+                time.sleep(1.0)
 
     created_application = False
     document = None
@@ -629,17 +629,13 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
     comtypes.CoInitialize()
     try:
         try:
-            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=15.0)
-            state = retry_com(lambda: acad.GetAcadState(), timeout=15.0)
-            if not retry_com(lambda: bool(state.IsQuiescent), timeout=15.0):
-                raise RuntimeError("Active AutoCAD session is busy")
-            log("Connected to the active AutoCAD session.")
-            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=45.0)
+            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=10.0)
+            log("Connected to active AutoCAD session.")
         except Exception:
             acad = comtypes.client.CreateObject("AutoCAD.Application")
             retry_com(lambda: setattr(acad, "Visible", False))
             created_application = True
-            log("Started a dedicated AutoCAD session for ATTSYNC.")
+            log("Started dedicated AutoCAD session for ATTSYNC.")
             try:
                 import ctypes
 
@@ -650,23 +646,19 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
                     print(f"TAGOPS_CREATED_AUTOCAD_PID={process_id.value}", flush=True)
             except Exception:
                 pass
-            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=60.0)
 
-        try:
-            acad_hwnd = retry_com(lambda: int(acad.HWND))
-        except Exception:
-            acad_hwnd = 0
-
-        # AutoCAD rejects automation calls while startup, dialogs, or commands
-        # are active. Wait for an idle window before opening the output drawing.
-        idle_deadline = time.monotonic() + 90
+        # Wait for AutoCAD to become quiescent (idle) before opening document
+        idle_deadline = time.monotonic() + 60
         while time.monotonic() < idle_deadline:
-            state = retry_com(lambda: acad.GetAcadState())
-            if retry_com(lambda: bool(state.IsQuiescent)):
-                break
-            time.sleep(0.25)
-        else:
-            raise TimeoutError("AutoCAD did not become idle within 90 seconds.")
+            try:
+                st = retry_com(lambda: acad.GetAcadState(), timeout=5.0)
+                if bool(retry_com(lambda: st.IsQuiescent, timeout=5.0)):
+                    break
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+        document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=90.0)
 
         log("AutoCAD is idle; submitting ATTSYNC commands.")
         marker_lisp = marker.as_posix().replace('"', '\\"')
