@@ -295,10 +295,7 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
             block = str(row.get("Asset Subtype/Block", ""))
             asset_value = row.get("Asset Content/Value", "")
             placeholder_value = row.get("Placeholder Content", "")
-            raw_value = asset_value if workflow == "client_translation" else (
-                asset_value if is_placeholder(placeholder_value) else placeholder_value
-            )
-            source_tag = unpack_tag(raw_value, block)
+            source_tag = unpack_tag(asset_value, block)
             if source_tag in user_mappings:
                 mapped_client_tag = user_mappings[source_tag]
                 if workflow == "client_translation":

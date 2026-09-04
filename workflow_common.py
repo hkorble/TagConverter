@@ -120,10 +120,8 @@ def apply_mapping_sheet(registry_path: Path, mapping_path: Path, workflow: str) 
             connections.at[index, "Placeholder Content"] = formatted
             connections.at[index, "Asset Content/Value"] = formatted
         else:
-            placeholder = row.get("Placeholder Content", "")
-            target_column = "Placeholder Content" if is_placeholder(placeholder) else "Asset Content/Value"
-            formatted = format_mapping(value, row.get(target_column, ""), block)
-            connections.at[index, target_column] = formatted
+            formatted = format_mapping(value, row.get("Placeholder Content", ""), block)
+            connections.at[index, "Placeholder Content"] = formatted
 
     with pd.ExcelWriter(registry_path, engine="openpyxl") as writer:
         master.to_excel(writer, sheet_name="Master Registry", index=False)

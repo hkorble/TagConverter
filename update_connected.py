@@ -103,109 +103,112 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
     updates_applied = 0
 
     for idx, row in df_connections.iterrows():
-        placeholder_id = str(row.get("Placeholder ID", ""))
-        placeholder_val = str(row.get("Placeholder Content", ""))
-        
-        source_val = placeholder_val
-        target_id = placeholder_id
+        targets = []
+        p_id = str(row.get("Placeholder ID", ""))
+        p_val = str(row.get("Placeholder Content", ""))
+        if p_id and not pd.isna(p_val) and str(p_val) and str(p_val) != "N/A" and "COORDINATES" not in str(p_val).upper():
+            targets.append((p_id, str(p_val).strip()))
 
-        if pd.isna(source_val) or not source_val or source_val == "N/A" or "COORDINATES" in str(source_val).upper():
-            continue
+        if freeze_dual:
+            a_id = str(row.get("Asset ID", ""))
+            a_val = str(row.get("Asset Content/Value", ""))
+            if a_id and not pd.isna(a_val) and str(a_val) and str(a_val) != "N/A" and a_id != p_id:
+                targets.append((a_id, str(a_val).strip()))
 
-        if target_id not in master_lookup:
-            print(f"Skipping row {idx + 1}: Target ID [{target_id}] not found in Master Registry.")
-            continue
+        for target_id, actual_source_text in targets:
+            if target_id not in master_lookup:
+                print(f"Skipping target [{target_id}] not found in Master Registry.")
+                continue
 
-        target_info = master_lookup[target_id]
-        target_cat = target_info["category"]
-        target_sub = target_info["subtype"]
-        target_x = target_info["x"]
-        target_y = target_info["y"]
+            target_info = master_lookup[target_id]
+            target_cat = target_info["category"]
+            target_sub = target_info["subtype"]
+            target_x = target_info["x"]
+            target_y = target_info["y"]
 
-        actual_source_text = str(source_val).strip()
-        rule = BLOCK_RULES_LEGEND.get(target_sub, {})
-        is_instrument = rule.get("instrument", False)
+            rule = BLOCK_RULES_LEGEND.get(target_sub, {})
+            is_instrument = rule.get("instrument", False)
 
-        matched = False
-        if target_cat == "Block Reference":
-            if "target_attributes" in rule:
-                target_attr_tags = rule["target_attributes"]
-            else:
-                target_attr_tags = [rule.get("target_attribute")]
+            matched = False
+            if target_cat == "Block Reference":
+                if "target_attributes" in rule:
+                    target_attr_tags = rule["target_attributes"]
+                else:
+                    target_attr_tags = [rule.get("target_attribute")]
 
-            for insert in msp.query("INSERT"):
-                if insert.dxf.name == target_sub and insert.has_attrib:
-                    coords = insert.dxf.insert or (0.0, 0.0, 0.0)
-                    if abs(float(coords[0]) - target_x) < 0.01 and abs(float(coords[1]) - target_y) < 0.01:
-                        
-                        attrib_map = {}
-                        for attr in insert.attribs:
-                            attrib_map[attr.dxf.tag.upper()] = attr
-
-                        if is_instrument:
-                            new_top, new_btm = _split_tag_at_first_dash(actual_source_text)
-                            block_rotation = insert.dxf.rotation or 0.0
-
-                            # Apply to TOP attributes
-                            for tag_name in ["TOP", "TXT1"]:
-                                if tag_name in attrib_map and attrib_map[tag_name]:
-                                    attr = attrib_map[tag_name]
-                                    attr.dxf.text = new_top
-                                    attr.dxf.rotation = block_rotation
-                                    updates_applied += 1
-
-                            # Apply to BTM attributes
-                            for tag_name in ["BTM", "TXT2"]:
-                                if tag_name in attrib_map and attrib_map[tag_name]:
-                                    attr = attrib_map[tag_name]
-                                    attr.dxf.text = new_btm
-                                    attr.dxf.rotation = block_rotation
-                                    updates_applied += 1
-                        else:
-                            # Standard block attribute update
-                            attr_dict = {}
-                            if actual_source_text.startswith("{") and actual_source_text.endswith("}"):
-                                try:
-                                    parsed_dict = ast.literal_eval(actual_source_text)
-                                    if isinstance(parsed_dict, dict):
-                                        attr_dict = parsed_dict
-                                except Exception:
-                                    pass
-
+                for insert in msp.query("INSERT"):
+                    if insert.dxf.name == target_sub and insert.has_attrib:
+                        coords = insert.dxf.insert or (0.0, 0.0, 0.0)
+                        if abs(float(coords[0]) - target_x) < 0.01 and abs(float(coords[1]) - target_y) < 0.01:
+                            
+                            attrib_map = {}
                             for attr in insert.attribs:
-                                tag_upper = attr.dxf.tag.upper()
-                                for t_tag in target_attr_tags:
-                                    if tag_upper == t_tag.upper():
-                                        new_val = actual_source_text
-                                        if attr_dict:
-                                            for k, v in attr_dict.items():
-                                                if k.upper() == tag_upper:
-                                                    new_val = str(v)
-                                                    break
-                                        
-                                        attr.dxf.text = new_val
+                                attrib_map[attr.dxf.tag.upper()] = attr
+
+                            if is_instrument:
+                                new_top, new_btm = _split_tag_at_first_dash(actual_source_text)
+                                block_rotation = insert.dxf.rotation or 0.0
+
+                                # Apply to TOP attributes
+                                for tag_name in ["TOP", "TXT1"]:
+                                    if tag_name in attrib_map and attrib_map[tag_name]:
+                                        attr = attrib_map[tag_name]
+                                        attr.dxf.text = new_top
+                                        attr.dxf.rotation = block_rotation
                                         updates_applied += 1
-                                        break
 
-                        matched = True
-                        break
-                if matched:
-                    break
+                                # Apply to BTM attributes
+                                for tag_name in ["BTM", "TXT2"]:
+                                    if tag_name in attrib_map and attrib_map[tag_name]:
+                                        attr = attrib_map[tag_name]
+                                        attr.dxf.text = new_btm
+                                        attr.dxf.rotation = block_rotation
+                                        updates_applied += 1
+                            else:
+                                # Standard block attribute update
+                                attr_dict = {}
+                                if actual_source_text.startswith("{") and actual_source_text.endswith("}"):
+                                    try:
+                                        parsed_dict = ast.literal_eval(actual_source_text)
+                                        if isinstance(parsed_dict, dict):
+                                            attr_dict = parsed_dict
+                                    except Exception:
+                                        pass
 
-        elif target_cat == "Text/Label":
-            for entity in msp:
-                if entity.dxftype() in ('TEXT', 'MTEXT'):
-                    insert = entity.dxf.insert
-                    if abs(float(insert.x) - target_x) < 0.01 and abs(float(insert.y) - target_y) < 0.01:
-                        new_val = actual_source_text
-                        
-                        if entity.dxftype() == 'TEXT':
-                            entity.dxf.text = new_val
-                        else:
-                            entity.text = new_val
-                        updates_applied += 1
-                        matched = True
+                                for attr in insert.attribs:
+                                    tag_upper = attr.dxf.tag.upper()
+                                    for t_tag in target_attr_tags:
+                                        if tag_upper == t_tag.upper():
+                                            new_val = actual_source_text
+                                            if attr_dict:
+                                                for k, v in attr_dict.items():
+                                                    if k.upper() == tag_upper:
+                                                        new_val = str(v)
+                                                        break
+                                            
+                                            attr.dxf.text = new_val
+                                            updates_applied += 1
+                                            break
+
+                            matched = True
+                            break
+                    if matched:
                         break
+
+            elif target_cat == "Text/Label":
+                for entity in msp:
+                    if entity.dxftype() in ('TEXT', 'MTEXT'):
+                        insert = entity.dxf.insert
+                        if abs(float(insert.x) - target_x) < 0.01 and abs(float(insert.y) - target_y) < 0.01:
+                            new_val = actual_source_text
+                            
+                            if entity.dxftype() == 'TEXT':
+                                entity.dxf.text = new_val
+                            else:
+                                entity.text = new_val
+                            updates_applied += 1
+                            matched = True
+                            break
 
     print(f"Total elements updated: {updates_applied}")
     if freeze_dual:
