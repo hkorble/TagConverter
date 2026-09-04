@@ -132,9 +132,9 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
             matched = False
             if target_cat == "Block Reference":
                 if "target_attributes" in rule:
-                    target_attr_tags = rule["target_attributes"]
+                    target_attr_tags = [str(t).upper() for t in rule["target_attributes"]]
                 else:
-                    target_attr_tags = [rule.get("target_attribute")]
+                    target_attr_tags = [str(rule.get("target_attribute", "")).upper()]
 
                 for insert in msp.query("INSERT"):
                     ins_name = getattr(insert, "effective_name", insert.dxf.name)
@@ -144,6 +144,7 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
                             if attr.dxf.tag.upper() in target_attr_tags:
                                 name_match = True
                                 break
+
 
                     if name_match and insert.has_attrib:
                         coords = insert.dxf.insert or (0.0, 0.0, 0.0)

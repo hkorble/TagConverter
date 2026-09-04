@@ -99,19 +99,48 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
     for insert in insert_entities:
         raw_name = insert.dxf.name
         eff_name = getattr(insert, 'effective_name', raw_name)
-        if eff_name in allowed_blocks:
-            block_name = eff_name
-        elif raw_name in allowed_blocks:
-            block_name = raw_name
-        elif insert.has_attrib:
-            block_name = raw_name
+        block_name = None
+
+        if insert.has_attrib:
+            non_empty_tags = set()
+            all_tags = set()
             for attr in insert.attribs:
-                tag_name = attr.dxf.tag.upper()
-                if tag_name in attribute_to_block:
-                    block_name = attribute_to_block[tag_name]
-                    break
-        else:
-            block_name = eff_name
+                t = attr.dxf.tag.upper()
+                all_tags.add(t)
+                if _clean_text(attr.dxf.text):
+                    non_empty_tags.add(t)
+
+            if eff_name in allowed_blocks:
+                eff_rule = BLOCK_RULES_LEGEND.get(eff_name, {})
+                eff_target_attrs = [str(a).upper() for a in eff_rule.get('target_attributes', [eff_rule.get('target_attribute')]) if a]
+                if any(t in non_empty_tags for t in eff_target_attrs):
+                    block_name = eff_name
+
+            if not block_name:
+                for t in non_empty_tags:
+                    if t in attribute_to_block:
+                        block_name = attribute_to_block[t]
+                        break
+
+            if not block_name and eff_name in allowed_blocks:
+                eff_rule = BLOCK_RULES_LEGEND.get(eff_name, {})
+                eff_target_attrs = [str(a).upper() for a in eff_rule.get('target_attributes', [eff_rule.get('target_attribute')]) if a]
+                if any(t in all_tags for t in eff_target_attrs):
+                    block_name = eff_name
+
+            if not block_name:
+                for t in all_tags:
+                    if t in attribute_to_block:
+                        block_name = attribute_to_block[t]
+                        break
+
+        if not block_name:
+            if eff_name in allowed_blocks:
+                block_name = eff_name
+            elif raw_name in allowed_blocks:
+                block_name = raw_name
+            else:
+                block_name = eff_name
         coords = insert.dxf.insert or (0.0, 0.0, 0.0)
         x, y, z = float(coords[0]), float(coords[1]), float(coords[2])
 
