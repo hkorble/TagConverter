@@ -83,8 +83,19 @@ function App() {
   const [dumpText, setDumpText] = useState("");
   const [dumpStatus, setDumpStatus] = useState("");
 
+  const [highestStepReached, setHighestStepReached] = useState<number>(0);
+
   function toggleWorkflow(id: Workflow) {
     setSelectedWorkflows([id]);
+  }
+
+  function handleDwgPathChange(path: string) {
+    setDwgPath(path);
+    setPhase("setup");
+    setHighestStepReached(0);
+    setLogs([]);
+    setMessage("");
+    setCompletedOutputs({});
   }
 
   function applyDumpedTags() {
@@ -221,7 +232,6 @@ function App() {
       });
       const data = await response.json();
       if (!response.ok) {
-        // Fallback automatically to online web editor
         fetchMappingData(filePath);
       }
     } catch {
@@ -241,7 +251,7 @@ function App() {
       const data = await response.json();
       if (data?.path) {
         if (mode === "file") {
-          setDwgPath(data.path);
+          handleDwgPathChange(data.path);
         } else if (mode === "output") {
           setOutputPath(data.path);
         }
@@ -252,6 +262,11 @@ function App() {
   }
 
   async function run(action: "prepare" | "finalize") {
+    if (action === "prepare") {
+      setHighestStepReached(0);
+    } else if (action === "finalize") {
+      setHighestStepReached(3);
+    }
     setPhase("running");
     setMessage("");
     setLogs([]);
@@ -305,6 +320,7 @@ function App() {
               run.error.includes("Worksheet named 'Mapping' not found"));
           if (isUnmappedWarning) {
             setPhase("mapping_ready");
+            setHighestStepReached(2);
             setMessage("⚠️ Warning: Not all elements are mapped yet. Please complete all client mappings before finishing the drawing.");
           } else {
             setPhase("error");
@@ -319,18 +335,45 @@ function App() {
     }, 850);
   }
 
+  useEffect(() => {
+    let calculated = 0;
+    if (phase === "complete") {
+      calculated = 4;
+    } else if (phase === "mapping_ready") {
+      calculated = 2;
+    } else if (phase === "running") {
+      if (logs.some((l) => l.includes("04 ") || l.includes("05 ") || l.includes("06 ") || l.includes("Applying tags") || l.includes("ATTSYNC") || l.includes("Exporting"))) {
+        calculated = 3;
+      } else if (logs.some((l) => l.includes("03 ") || l.includes("Creating the client mapping"))) {
+        calculated = 2;
+      } else if (logs.some((l) => l.includes("02 ") || l.includes("Building the shared spatial registry"))) {
+        calculated = 1;
+      } else {
+        calculated = 0;
+      }
+    }
+    setHighestStepReached((prev) => Math.max(prev, calculated));
+  }, [phase, logs]);
+
   const ready = Boolean(dwgPath.trim());
   const currentStep = useMemo(() => {
     if (phase === "complete") return 4;
-    if (phase === "mapping_ready") return 2;
-    if (phase === "running") {
-      if (logs.some((l) => l.includes("04 ") || l.includes("05 ") || l.includes("06 ") || l.includes("Applying tags"))) return 3;
-      if (logs.some((l) => l.includes("03 ") || l.includes("Creating the client mapping"))) return 2;
-      if (logs.some((l) => l.includes("02 ") || l.includes("Building the shared spatial registry"))) return 1;
-      return 0;
+    let calc = 0;
+    if (phase === "mapping_ready") {
+      calc = 2;
+    } else if (phase === "running") {
+      if (logs.some((l) => l.includes("04 ") || l.includes("05 ") || l.includes("06 ") || l.includes("Applying tags") || l.includes("ATTSYNC") || l.includes("Exporting"))) {
+        calc = 3;
+      } else if (logs.some((l) => l.includes("03 ") || l.includes("Creating the client mapping"))) {
+        calc = 2;
+      } else if (logs.some((l) => l.includes("02 ") || l.includes("Building the shared spatial registry"))) {
+        calc = 1;
+      } else {
+        calc = 0;
+      }
     }
-    return 0;
-  }, [phase, logs]);
+    return Math.max(highestStepReached, calc);
+  }, [phase, logs, highestStepReached]);
 
   return (
     <main className="app-shell">
