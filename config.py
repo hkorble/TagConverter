@@ -37,7 +37,13 @@ BLOCK_RULES_LEGEND = {
         "target_attributes": ["TXT1", "TXT2"],
         "is_block": True,
         "instrument": True,
-    },
+    }, 
+    "dyn-vlv-bw": {
+            "target_attribute": "VLV_NUM",
+            "is_block": True,
+            "instrument": False,
+        },
+    
     "MTEXT": {
         "target_attribute": "TEXT",
         "is_block": False,
