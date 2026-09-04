@@ -723,18 +723,13 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
             pdf_lisp = pdf_path.as_posix().replace('"', '\\"')
             pdf_command = f'(command "._-PLOT" "Y" "" "AutoCAD PDF (General Documentation).pc3" "ANSI A (8.50 x 11.00 Inches)" "I" "L" "N" "E" "F" "C" "Y" "." "Y" "N" "N" "N" "{pdf_lisp}" "N" "Y") '
 
-        from config import BLOCK_RULES_LEGEND
-
-        attsync_block_cmds = " ".join(
-            f'(command "_.attsync" "_Name" "{bname}")'
-            for bname, rule in BLOCK_RULES_LEGEND.items()
-            if rule.get("is_block") is True
-        )
-
         command = (
             f'(progn '
             f'(setvar "SECURELOAD" 0) '
-            f'{attsync_block_cmds} '
+            f'(command "_.attsync" "_Name" "dyn_instr shared disp") '
+            f'(command "_.attsync" "_Name" "Dyn_Discrete Instr") '
+            f'(command "_.attsync" "_Name" "dyn_instr plc") '
+            f'(command "_.attsync" "_Name" "dyn_meter") '
             f'(command "_.regenall") '
             f'{pdf_command}'
             f'(setq tagops-marker (open "{marker_lisp}" "w")) '
