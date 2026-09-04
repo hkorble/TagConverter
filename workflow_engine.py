@@ -85,14 +85,17 @@ class WorkflowPaths:
         workflow_str = str(payload.get("workflow", ""))
         suffix = "_translated" if "client_translation" in workflow_str else "_dualtagged"
 
+        outputs_dir = app_root / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+
         if not raw_output:
-            output_path = (Path.home() / "Downloads" / f"{clean_stem}{suffix}{ext}").resolve()
+            output_path = (outputs_dir / f"{clean_stem}{suffix}{ext}").resolve()
         else:
             p_out = Path(raw_output).expanduser()
             if p_out.is_absolute() or ("\\" in raw_output or "/" in raw_output):
                 output_path = p_out.resolve()
             else:
-                output_path = (Path.home() / "Downloads" / raw_output).resolve()
+                output_path = (outputs_dir / raw_output).resolve()
 
         return cls(
             base_dir=base,
