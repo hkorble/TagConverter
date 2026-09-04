@@ -71,12 +71,12 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
 
     insert_entities = [
         e for e in msp.query('INSERT') 
-        if e.dxf.name in allowed_blocks
+        if (getattr(e, 'effective_name', e.dxf.name) in allowed_blocks or e.dxf.name in allowed_blocks)
         and e.dxf.get('layer', '').strip().upper() != 'FLAGGING'
     ]
 
     for insert in insert_entities:
-        block_name = insert.dxf.name
+        block_name = getattr(insert, 'effective_name', insert.dxf.name)
         coords = insert.dxf.insert or (0.0, 0.0, 0.0)
         x, y, z = float(coords[0]), float(coords[1]), float(coords[2])
 
