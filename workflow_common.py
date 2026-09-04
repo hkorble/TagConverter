@@ -46,6 +46,14 @@ def unpack_tag(raw_value: object, block_name: str) -> str:
                 selected = [str(values[tag]) for tag in target_attributes(block_name) if values.get(tag) not in (None, "")]
                 if selected:
                     return "-".join(selected)
+                
+                # Fallback: Check any non-empty attribute tag present in values matching any block rule in BLOCK_RULES_LEGEND
+                from config import BLOCK_RULES_LEGEND
+                for bname, rule in BLOCK_RULES_LEGEND.items():
+                    attrs = rule.get("target_attributes", [rule.get("target_attribute")])
+                    for attr in attrs:
+                        if attr and values.get(attr) not in (None, ""):
+                            return str(values[attr])
         except (SyntaxError, ValueError):
             pass
     return text
