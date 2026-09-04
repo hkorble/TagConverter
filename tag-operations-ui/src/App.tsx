@@ -304,8 +304,18 @@ function App() {
         }
         if (run.status === "error") {
           window.clearInterval(timer);
-          setPhase("error");
-          setMessage(run.error || "The workflow stopped.");
+          const isUnmappedWarning =
+            run.error &&
+            (run.error.includes("Fill in all client mappings first") ||
+              run.error.includes("blank row") ||
+              run.error.includes("Worksheet named 'Mapping' not found"));
+          if (isUnmappedWarning) {
+            setPhase("mapping_ready");
+            setMessage("⚠️ Warning: Not all elements are mapped yet. Please complete all client mappings before finishing the drawing.");
+          } else {
+            setPhase("error");
+            setMessage(run.error || "The workflow stopped.");
+          }
         }
       } catch {
         window.clearInterval(timer);
@@ -316,7 +326,17 @@ function App() {
   }
 
   const ready = Boolean(dwgPath.trim());
-  const currentStep = phase === "mapping_ready" ? 2 : phase === "complete" ? 4 : phase === "running" ? Math.min(logs.length, 3) : 0;
+  const currentStep = useMemo(() => {
+    if (phase === "complete") return 4;
+    if (phase === "mapping_ready") return 2;
+    if (phase === "running") {
+      if (logs.some((l) => l.includes("04 ") || l.includes("05 ") || l.includes("06 ") || l.includes("Applying tags"))) return 3;
+      if (logs.some((l) => l.includes("03 ") || l.includes("Creating the client mapping"))) return 2;
+      if (logs.some((l) => l.includes("02 ") || l.includes("Building the shared spatial registry"))) return 1;
+      return 0;
+    }
+    return 0;
+  }, [phase, logs]);
 
   return (
     <main className="app-shell">
@@ -411,10 +431,9 @@ function App() {
                   : workflowCopy[selectedWorkflows[0]].name}
               </h2>
             </div>
-            <span className="step-count">01 / 02</span>
           </div>
 
-          <label className="field-label" htmlFor="dwg-path">SOURCE DRAWING <span>Required (.dwg or .zip)</span></label>
+          <label className="field-label" htmlFor="dwg-path">INPUT <span>Required (.dwg or .zip)</span></label>
           <div className="path-field" style={{ cursor: "pointer" }} onClick={() => browsePath("file")}>
             <FilePenLine size={19} />
             <input
@@ -815,7 +834,7 @@ function App() {
         </div>
       )}
 
-      <footer><span>PADXPRESS · TAG OPERATIONS</span><span>CONFIG-DRIVEN WORKFLOWS</span></footer>
+      <footer><span>PADXPRESS · TAG OPERATIONS</span></footer>
     </main>
   );
 }
