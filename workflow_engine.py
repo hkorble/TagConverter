@@ -178,17 +178,16 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
                     asset_value if is_placeholder(placeholder_value) else placeholder_value
                 )
                 source_tag = unpack_tag(raw_value, block)
-                if not source_tag:
+                if not source_tag or is_placeholder(source_tag) or is_placeholder(raw_value):
                     continue
-                if source_tag:
-                    if source_tag not in unique_tags:
-                        unique_tags[source_tag] = []
-                    unique_tags[source_tag].append({
-                        "dwg_idx": idx,
-                        "rel_path": rel_path,
-                        "conn_idx": int(conn_idx),
-                        "block": block
-                    })
+                if source_tag not in unique_tags:
+                    unique_tags[source_tag] = []
+                unique_tags[source_tag].append({
+                    "dwg_idx": idx,
+                    "rel_path": rel_path,
+                    "conn_idx": int(conn_idx),
+                    "block": block
+                })
 
     manifest_path = work_dir / "zip_manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as f:
@@ -288,7 +287,10 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
 
         log(f"[{idx}/{len(dwg_files)}] Applying tags, regenerating PDF & synchronizing {rel_path}...")
 
-        reg_df = pd.read_excel(dwg_registry, sheet_name="Connected Elements")
+        wf_dwg_registry = dwg_registry.parent / f"Master_Registry_{workflow}.xlsx"
+        shutil.copy2(dwg_registry, wf_dwg_registry)
+
+        reg_df = pd.read_excel(wf_dwg_registry, sheet_name="Connected Elements")
         dwg_updates_count = 0
 
         for conn_idx, row in reg_df.iterrows():
@@ -334,11 +336,11 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
                 "Status": "Regenerated & Synced",
             })
 
-        with pd.ExcelWriter(dwg_registry, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+        with pd.ExcelWriter(wf_dwg_registry, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
             reg_df.to_excel(writer, index=False, sheet_name="Connected Elements")
 
         freeze_dual = (workflow == "client_translation")
-        update_connected_pids(str(dwg_file), str(dwg_registry), str(out_dwg), freeze_dual=freeze_dual)
+        update_connected_pids(str(dwg_file), str(wf_dwg_registry), str(out_dwg), freeze_dual=freeze_dual)
         _run_attsync(out_dwg, paths.attsync, log, pdf_path=out_pdf)
 
     # Check for REPORTS folder in staging directory (case-insensitive)
@@ -506,10 +508,16 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
         for wf in workflows:
             label = "DualTagged" if wf == "dual_tagging" else "ClientTranslated"
             out_file = raw_out.parent / f"{raw_stem}_{label}{ext}"
+
+            wf_registry = paths.registry
+            if not is_zip and paths.registry.is_file():
+                wf_registry = paths.registry.parent / f"Master_Registry_{wf}.xlsx"
+                shutil.copy2(paths.registry, wf_registry)
+
             wf_paths = WorkflowPaths(
                 base_dir=paths.base_dir,
                 dwg=paths.dwg,
-                registry=paths.registry,
+                registry=wf_registry,
                 mapping=paths.mapping,
                 output=out_file,
                 groups=paths.groups,

@@ -82,7 +82,7 @@ def write_mapping_sheet(connections_path: Path, mapping_path: Path, workflow: st
             asset_value if is_placeholder(placeholder_value) else placeholder_value
         )
         source_tag = unpack_tag(raw_value, block)
-        if not source_tag:
+        if not source_tag or is_placeholder(source_tag) or is_placeholder(raw_value):
             continue
         rows.append({"Connection Row": int(index), "Scovan Tag": source_tag, "Client Tag Mapping": ""})
 
