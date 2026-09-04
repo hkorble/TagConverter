@@ -84,13 +84,7 @@ function App() {
   const [dumpStatus, setDumpStatus] = useState("");
 
   function toggleWorkflow(id: Workflow) {
-    setSelectedWorkflows((prev) => {
-      if (prev.includes(id)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((w) => w !== id);
-      }
-      return [...prev, id];
-    });
+    setSelectedWorkflows([id]);
   }
 
   function applyDumpedTags() {
@@ -385,10 +379,11 @@ function App() {
         {(Object.keys(workflowCopy) as Workflow[]).map((id) => {
           const item = workflowCopy[id];
           const Icon = item.icon;
-          const isSelected = selectedWorkflows.includes(id);
+          const isSelected = selectedWorkflows[0] === id;
           return (
             <button
               key={id}
+              type="button"
               className={`workflow-card ${isSelected ? "selected" : ""}`}
               onClick={() => toggleWorkflow(id)}
               style={{ position: "relative" }}
@@ -404,7 +399,7 @@ function App() {
                 style={{
                   background: isSelected ? "var(--acid)" : "transparent",
                   border: isSelected ? "1px solid var(--acid)" : "1px solid #555",
-                  borderRadius: "4px",
+                  borderRadius: "50%",
                   width: "22px",
                   height: "22px",
                   display: "flex",
@@ -413,7 +408,7 @@ function App() {
                   color: "#181a17",
                 }}
               >
-                {isSelected && <Check size={16} strokeWidth={3} />}
+                {isSelected && <CircleDot size={16} strokeWidth={3} />}
               </span>
             </button>
           );
@@ -425,11 +420,7 @@ function App() {
           <div className="panel-title">
             <div>
               <span>RUN SETUP</span>
-              <h2>
-                {selectedWorkflows.length > 1
-                  ? "Dual Tagging & Client Translation (Both Selected)"
-                  : workflowCopy[selectedWorkflows[0]].name}
-              </h2>
+              <h2>{workflowCopy[selectedWorkflows[0] || "dual_tagging"].name}</h2>
             </div>
           </div>
 
