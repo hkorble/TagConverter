@@ -224,7 +224,7 @@ def _extract_groups_native(dwg_path: Path, base_dir: Path, log: Log = print) -> 
     log(f"ODA extracted {len(all_rows)} member(s) from {len(document.groups)} AutoCAD group(s).")
 
 
-def clean_workspace_artifacts(base_dir: Path, preserve_mapping: bool = False) -> None:
+def clean_workspace_artifacts(base_dir: Path, preserve_mapping: bool = False, preserve_registry: bool = False) -> None:
     """Purge temporary extraction, script, backup, and registry files to prevent cross-contamination."""
     if not base_dir.is_dir():
         return
@@ -232,11 +232,12 @@ def clean_workspace_artifacts(base_dir: Path, preserve_mapping: bool = False) ->
     files_to_remove = [
         base_dir / "autocad_groups.csv",
         base_dir / "large_groups.csv",
-        base_dir / "Master_Registry.xlsx",
         base_dir / "run_script.scr",
         base_dir / "align_blocks.scr",
         base_dir / "align_blocks1.scr",
     ]
+    if not preserve_registry:
+        files_to_remove.append(base_dir / "Master_Registry.xlsx")
     if not preserve_mapping:
         files_to_remove.append(base_dir / "Client_Mapping_Sheet.xlsx")
 

@@ -484,7 +484,7 @@ def _finalize_workflow_single(workflow: str, paths: WorkflowPaths, log: Log = pr
     if pdf_str:
         pub_paths["pdf"] = pdf_str
 
-    clean_workspace_artifacts(paths.base_dir, preserve_mapping=True)
+    clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=True)
     log(f"Complete: DWG -> {paths.output}, PDF -> {pdf_output}")
     return {"mapped_rows": mapped, "phase": "complete", "paths": pub_paths, "pdf": pdf_str}
 
@@ -532,6 +532,7 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
 
         pub_paths = paths.public()
         pub_paths["outputs"] = outputs
+        clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=False)
         return {"mapped_rows": mapped_rows, "phase": "complete", "paths": pub_paths, "outputs": outputs}
     else:
         wf = workflows[0]
@@ -544,6 +545,7 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
         pub_paths["outputs"] = outs
         res["outputs"] = outs
         res["paths"] = pub_paths
+        clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=False)
         return res
 
 
