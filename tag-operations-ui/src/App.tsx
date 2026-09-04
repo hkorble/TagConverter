@@ -413,7 +413,7 @@ function App() {
 
       <section className="industrial-banner" id="top" style={{ marginTop: "12px", padding: "16px 24px" }}>
         <div className="banner-title">
-          <h1 style={{ fontSize: "36px", fontWeight: 800, margin: 0, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>PadX Automan</h1>
+          <h1 style={{ fontSize: "36px", fontWeight: 800, margin: 0, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>PadXPRESS</h1>
           <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--acid)", letterSpacing: "1.5px", marginTop: "4px" }}>
             Dual Tagging and Translation
           </div>
