@@ -340,7 +340,8 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
         with pd.ExcelWriter(dwg_registry, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
             reg_df.to_excel(writer, index=False, sheet_name="Connected Elements")
 
-        update_connected_pids(str(dwg_file), str(dwg_registry), str(out_dwg))
+        freeze_dual = (workflow == "client_translation")
+        update_connected_pids(str(dwg_file), str(dwg_registry), str(out_dwg), freeze_dual=freeze_dual)
         _run_attsync(out_dwg, paths.attsync, log, pdf_path=out_pdf)
 
     # Check for REPORTS folder in staging directory (case-insensitive)
@@ -456,7 +457,8 @@ def _finalize_workflow_single(workflow: str, paths: WorkflowPaths, log: Log = pr
     if paths.output.exists():
         paths.output.unlink()
     log("05  Writing mapped tags into the updated drawing")
-    update_connected_pids(str(paths.dwg), str(paths.registry), str(paths.output))
+    freeze_dual = (workflow == "client_translation")
+    update_connected_pids(str(paths.dwg), str(paths.registry), str(paths.output), freeze_dual=freeze_dual)
 
     pdf_output = paths.output.with_suffix(".pdf")
     log("06  Synchronizing AutoCAD block attributes & plotting vector PDF")

@@ -65,7 +65,7 @@ def _split_tag_at_first_dash(raw_str: str) -> Tuple[str, str]:
     return text, ""
 
 
-def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str) -> None:
+def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, freeze_dual: bool = False) -> None:
     """
     Reads connection rows from the updated 'Connected Elements' sheet layout, 
     applies fine-tuned character-length offsets for instrument blocks, 
@@ -208,6 +208,15 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str) 
                         break
 
     print(f"Total elements updated: {updates_applied}")
+    if freeze_dual:
+        frozen_dual_count = 0
+        for layer in doc.layers:
+            if "dual" in layer.dxf.name.lower():
+                layer.freeze()
+                layer.off()
+                frozen_dual_count += 1
+        print(f"Client translation: Froze and turned off {frozen_dual_count} dual tagging layer(s) matching keyword 'dual'.")
+
     try:
         odafc.export_dwg(doc, output_dwg_path, replace=True)
     except Exception as exc:
