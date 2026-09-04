@@ -41,6 +41,14 @@ def generate_spatial_registry_translation(
     allowed_blocks = [k for k, v in BLOCK_RULES_LEGEND.items() if v.get('is_block') is True]
     allowed_texts = [k for k, v in BLOCK_RULES_LEGEND.items() if v.get('is_block') is False and k != 'DEFAULT']
 
+    attribute_to_block = {}
+    for bname, rule in BLOCK_RULES_LEGEND.items():
+        if rule.get('is_block') is True:
+            attrs = rule.get('target_attributes', [rule.get('target_attribute')])
+            for attr in attrs:
+                if attr:
+                    attribute_to_block[str(attr).upper()] = bname
+
     text_entities = [
         e for e in msp 
         if e.dxftype() in allowed_texts
@@ -74,14 +82,41 @@ def generate_spatial_registry_translation(
         registry_records.append(record)
         entity_spatial_map.append({'id': element_id, 'x': round(x, 3), 'y': round(y, 3), 'record': record})
 
-    insert_entities = [
-        e for e in msp.query('INSERT') 
-        if (getattr(e, 'effective_name', e.dxf.name) in allowed_blocks or e.dxf.name in allowed_blocks)
-        and e.dxf.get('layer', '').strip().upper() != 'FLAGGING'
-    ]
+    insert_entities = []
+    for e in msp.query('INSERT'):
+        if e.dxf.get('layer', '').strip().upper() == 'FLAGGING':
+            continue
+        raw_name = e.dxf.name
+        eff_name = getattr(e, 'effective_name', raw_name)
+
+        is_allowed = False
+        if eff_name in allowed_blocks or raw_name in allowed_blocks:
+            is_allowed = True
+        elif e.has_attrib:
+            for attr in e.attribs:
+                if attr.dxf.tag.upper() in attribute_to_block:
+                    is_allowed = True
+                    break
+
+        if is_allowed:
+            insert_entities.append(e)
     
     for insert in insert_entities:
-        block_name = getattr(insert, 'effective_name', insert.dxf.name)
+        raw_name = insert.dxf.name
+        eff_name = getattr(insert, 'effective_name', raw_name)
+        if eff_name in allowed_blocks:
+            block_name = eff_name
+        elif raw_name in allowed_blocks:
+            block_name = raw_name
+        elif insert.has_attrib:
+            block_name = raw_name
+            for attr in insert.attribs:
+                tag_name = attr.dxf.tag.upper()
+                if tag_name in attribute_to_block:
+                    block_name = attribute_to_block[tag_name]
+                    break
+        else:
+            block_name = eff_name
         coords = insert.dxf.insert or (0.0, 0.0, 0.0)
         x, y, z = float(coords[0]), float(coords[1]), float(coords[2])
 

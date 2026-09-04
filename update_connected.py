@@ -138,7 +138,14 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
 
                 for insert in msp.query("INSERT"):
                     ins_name = getattr(insert, "effective_name", insert.dxf.name)
-                    if (ins_name == target_sub or insert.dxf.name == target_sub) and insert.has_attrib:
+                    name_match = (ins_name == target_sub or insert.dxf.name == target_sub)
+                    if not name_match and insert.has_attrib:
+                        for attr in insert.attribs:
+                            if attr.dxf.tag.upper() in target_attr_tags:
+                                name_match = True
+                                break
+
+                    if name_match and insert.has_attrib:
                         coords = insert.dxf.insert or (0.0, 0.0, 0.0)
                         if abs(float(coords[0]) - target_x) < 0.01 and abs(float(coords[1]) - target_y) < 0.01:
                             
