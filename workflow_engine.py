@@ -79,10 +79,14 @@ class WorkflowPaths:
         ext = ".zip" if is_zip else ".dwg"
         raw_stem = dwg.stem
         clean_stem = re.sub(r"_Updated$", "", raw_stem, flags=re.IGNORECASE)
+        clean_stem = re.sub(r"_(dualtagged|translated|DualTagged|ClientTranslated)$", "", clean_stem, flags=re.IGNORECASE)
         raw_output = str(payload.get("output_path", "")).strip()
 
+        workflow_str = str(payload.get("workflow", ""))
+        suffix = "_translated" if "client_translation" in workflow_str else "_dualtagged"
+
         if not raw_output:
-            output_path = (Path.home() / "Downloads" / f"{clean_stem}_Updated{ext}").resolve()
+            output_path = (Path.home() / "Downloads" / f"{clean_stem}{suffix}{ext}").resolve()
         else:
             p_out = Path(raw_output).expanduser()
             if p_out.is_absolute() or ("\\" in raw_output or "/" in raw_output):
@@ -220,14 +224,17 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
     return {"mapping_rows": len(unique_tags), "phase": "mapping_ready", "paths": paths.public()}
 
 
-def get_pdf_rel_path(rel_path: str) -> str | None:
+def get_pdf_rel_path(rel_path: str) -> str:
     path_obj = Path(rel_path)
     parts = list(path_obj.parts)
-    if parts and parts[0].upper() == "NATIVE":
+    if not parts:
+        return "PDF/" + Path(rel_path).with_suffix(".pdf").name
+    if parts[0].upper() == "NATIVE":
         parts[0] = "PDF"
-        pdf_obj = Path(*parts).with_suffix(".pdf")
-        return pdf_obj.as_posix()
-    return None
+    else:
+        parts.insert(0, "PDF")
+    pdf_obj = Path(*parts).with_suffix(".pdf")
+    return pdf_obj.as_posix()
 
 
 def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) -> dict[str, object]:
@@ -503,10 +510,10 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
 
         raw_out = paths.output
         raw_stem = re.sub(r"_Updated$", "", raw_out.stem, flags=re.IGNORECASE)
-        raw_stem = re.sub(r"_(DualTagged|ClientTranslated)$", "", raw_stem, flags=re.IGNORECASE)
+        raw_stem = re.sub(r"_(DualTagged|ClientTranslated|dualtagged|translated)$", "", raw_stem, flags=re.IGNORECASE)
 
         for wf in workflows:
-            label = "DualTagged" if wf == "dual_tagging" else "ClientTranslated"
+            label = "dualtagged" if wf == "dual_tagging" else "translated"
             out_file = raw_out.parent / f"{raw_stem}_{label}{ext}"
 
             wf_registry = paths.registry

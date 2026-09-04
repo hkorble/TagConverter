@@ -162,20 +162,26 @@ function App() {
       const isZip = /\.zip$/i.test(fileName);
       const ext = isZip ? ".zip" : ".dwg";
       const rawStem = fileName.replace(/\.(dwg|zip)$/i, "") || "drawing";
-      const cleanStem = rawStem.replace(/_Updated$/i, "");
-      setOutputPath(`${cleanStem}_Updated${ext}`);
+      const cleanStem = rawStem
+        .replace(/_Updated$/i, "")
+        .replace(/_(dualtagged|translated)$/i, "");
+      const suffix = selectedWorkflows[0] === "client_translation" ? "_translated" : "_dualtagged";
+      setOutputPath(`${cleanStem}${suffix}${ext}`);
     }
-  }, [dwgPath]);
+  }, [dwgPath, selectedWorkflows]);
 
   const defaultOutputName = useMemo(() => {
-    if (!dwgPath.trim()) return "_Updated.dwg";
+    const suffix = selectedWorkflows[0] === "client_translation" ? "_translated" : "_dualtagged";
+    if (!dwgPath.trim()) return `${suffix}.dwg`;
     const fileName = dwgPath.split(/[\\/]/).pop() || "";
     const isZip = /\.zip$/i.test(fileName);
     const ext = isZip ? ".zip" : ".dwg";
     const rawStem = fileName.replace(/\.(dwg|zip)$/i, "") || "drawing";
-    const cleanStem = rawStem.replace(/_Updated$/i, "");
-    return `${cleanStem}_Updated${ext}`;
-  }, [dwgPath]);
+    const cleanStem = rawStem
+      .replace(/_Updated$/i, "")
+      .replace(/_(dualtagged|translated)$/i, "");
+    return `${cleanStem}${suffix}${ext}`;
+  }, [dwgPath, selectedWorkflows]);
 
   const derivedOutput = useMemo(() => {
     const chosen = outputPath.trim() || defaultOutputName;
