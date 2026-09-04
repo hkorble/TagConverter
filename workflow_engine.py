@@ -224,15 +224,33 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
     return {"mapping_rows": len(unique_tags), "phase": "mapping_ready", "paths": paths.public()}
 
 
-def get_pdf_rel_path(rel_path: str) -> str:
+def get_pdf_rel_path(rel_path: str, staging_dir: Path | None = None) -> str:
     path_obj = Path(rel_path)
     parts = list(path_obj.parts)
     if not parts:
         return "PDF/" + Path(rel_path).with_suffix(".pdf").name
-    if parts[0].upper() == "NATIVE":
-        parts[0] = "PDF"
+
+    native_idx = -1
+    for idx, p in enumerate(parts):
+        if p.upper() == "NATIVE":
+            native_idx = idx
+            break
+
+    pdf_folder_name = "PDF"
+    if staging_dir and staging_dir.is_dir():
+        parent_parts = parts[:native_idx] if native_idx != -1 else parts[:-1]
+        target_parent = staging_dir.joinpath(*parent_parts)
+        if target_parent.is_dir():
+            for child in target_parent.iterdir():
+                if child.is_dir() and child.name.upper() == "PDF":
+                    pdf_folder_name = child.name
+                    break
+
+    if native_idx != -1:
+        parts[native_idx] = pdf_folder_name
     else:
-        parts.insert(0, "PDF")
+        parts.insert(-1, pdf_folder_name)
+
     pdf_obj = Path(*parts).with_suffix(".pdf")
     return pdf_obj.as_posix()
 
@@ -286,7 +304,7 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
         out_dwg = out_staging / rel_path
         out_dwg.parent.mkdir(parents=True, exist_ok=True)
 
-        rel_pdf = get_pdf_rel_path(rel_path)
+        rel_pdf = get_pdf_rel_path(rel_path, staging_dir=out_staging)
         out_pdf = None
         if rel_pdf:
             out_pdf = out_staging / rel_pdf
