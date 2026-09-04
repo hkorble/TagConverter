@@ -24,6 +24,11 @@ body {
   background: #111310;
   color: #e2e5dc;
   overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+body::-webkit-scrollbar {
+  display: none;
 }
 button, input { font: inherit; }
 button { color: inherit; }
