@@ -662,7 +662,7 @@ function App() {
           display: "flex", justifyContent: "center", alignItems: "center", padding: "20px"
         }}>
           <div style={{
-            backgroundColor: "#191c1e", border: "1px solid #2e3338", borderRadius: "12px",
+            backgroundColor: "#252d1d", border: "1px solid #525a37", borderRadius: "12px",
             width: "100%", maxWidth: "920px", maxHeight: "88vh", display: "flex", flexDirection: "column",
             boxShadow: "0 20px 50px rgba(0,0,0,0.8)", color: "#ecefe9", padding: "24px"
           }}>
@@ -803,7 +803,7 @@ function App() {
           display: "flex", justifyContent: "center", alignItems: "center", padding: "20px"
         }}>
           <div style={{
-            backgroundColor: "#191c1e", border: "1px solid #2e3338", borderRadius: "12px",
+            backgroundColor: "#252d1d", border: "1px solid #525a37", borderRadius: "12px",
             width: "100%", maxWidth: "680px", display: "flex", flexDirection: "column",
             boxShadow: "0 20px 50px rgba(0,0,0,0.9)", color: "#ecefe9", padding: "24px"
           }}>
@@ -828,7 +828,7 @@ function App() {
               placeholder={`Paste 2-column data here...\nExample:\n33GA-C4-C5\tCLIENT-TAG-01\n114GA-C1-C5#\tCLIENT-TAG-02`}
               rows={10}
               style={{
-                width: "100%", padding: "12px", background: "#121415", border: "1px solid #363b42",
+                width: "100%", padding: "12px", background: "#161b11", border: "1px solid #525a37",
                 borderRadius: "6px", color: "var(--acid)", fontFamily: "monospace", fontSize: "13px", outline: "none"
               }}
             />
