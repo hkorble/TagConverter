@@ -576,8 +576,8 @@ function App() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            background: "linear-gradient(135deg, #242a1b 0%, #191c1e 100%)",
-                            border: "1px solid #525a37",
+                            background: "#252d1d",
+                            border: "1px solid #3d4628",
                             borderRadius: "8px",
                             padding: "10px 14px",
                           }}
