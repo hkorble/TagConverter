@@ -76,10 +76,10 @@ def _browse_path(mode: str) -> str | None:
             ofn = OPENFILENAMEW()
             ofn.lStructSize = ctypes.sizeof(OPENFILENAMEW)
             ofn.hwndOwner = hwnd
-            ofn.lpstrFilter = "AutoCAD Drawing (*.dwg)\0*.dwg\0All Files (*.*)\0*.*\0\0"
+            ofn.lpstrFilter = "AutoCAD Drawings & ZIP (*.dwg;*.zip)\0*.dwg;*.zip\0All Files (*.*)\0*.*\0\0"
             ofn.lpstrFile = ctypes.cast(buffer, wintypes.LPWSTR)
             ofn.nMaxFile = 512
-            ofn.lpstrTitle = "Select Source Drawing" if mode == "file" else "Select Output Drawing Location"
+            ofn.lpstrTitle = "Select Source Drawing or ZIP Package" if mode == "file" else "Select Output Drawing Location"
             ofn.Flags = 0x00000800 | 0x00000008 | (0x00001000 if mode == "file" else 0)  # OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR
             ofn.lpstrDefExt = "dwg"
 
@@ -110,7 +110,7 @@ def _browse_path(mode: str) -> str | None:
     # Fallback to PowerShell if ctypes call fails
     try:
         if mode == "file":
-            ps_code = 'Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = "AutoCAD Drawing (*.dwg)|*.dwg|All Files (*.*)|*.*"; $f.Title = "Select Source Drawing"; $top = New-Object System.Windows.Forms.Form; $top.TopMost = $true; if ($f.ShowDialog($top) -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.FileName }'
+            ps_code = 'Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = "AutoCAD Drawings & ZIP (*.dwg;*.zip)|*.dwg;*.zip|All Files (*.*)|*.*"; $f.Title = "Select Source Drawing or ZIP Package"; $top = New-Object System.Windows.Forms.Form; $top.TopMost = $true; if ($f.ShowDialog($top) -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.FileName }'
         elif mode == "folder":
             ps_code = 'Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = "Select Workspace Directory"; $top = New-Object System.Windows.Forms.Form; $top.TopMost = $true; if ($f.ShowDialog($top) -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.SelectedPath }'
         elif mode == "output":
@@ -137,6 +137,7 @@ def _run_job(run_id: str, action: str, payload: dict[str, object]) -> None:
 
     try:
         workflow = str(payload.get("workflow", "dual_tagging"))
+        payload["action"] = action
         paths = WorkflowPaths.from_payload(payload)
         result = (prepare_workflow if action == "prepare" else finalize_workflow)(workflow, paths, log)
         with RUNS_LOCK:

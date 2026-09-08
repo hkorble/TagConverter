@@ -35,8 +35,16 @@ def resolve_drawing_path(raw_path: str) -> Path:
     if not raw_path.strip():
         return Path(raw_path)
     p = Path(raw_path).expanduser()
+
+    ignored_parts = {
+        ".runtime", "outputs", ".git", "node_modules",
+        "zip_workdir", "workspaces", "extracted", "out_staging", "wrapped_zips"
+    }
+
+    # If already a valid file, make sure it is NOT pointing inside a temporary/output runtime folder
     if p.is_file():
-        return p.resolve()
+        if not any(part.lower() in ignored_parts for part in p.parts):
+            return p.resolve()
 
     filename = p.name
     candidates: list[Path] = []
@@ -45,12 +53,20 @@ def resolve_drawing_path(raw_path: str) -> Path:
     project_root = Path(__file__).resolve().parent
     desktop_dir = Path.home() / "Desktop"
 
-    for root_dir in (downloads_dir, project_root, desktop_dir):
+    # Search user's primary source directories: Downloads and Desktop, then project root (excluding temp dirs)
+    for root_dir in (downloads_dir, desktop_dir, project_root):
         if root_dir.is_dir():
-            candidates.extend([f for f in root_dir.rglob(filename) if f.is_file()])
+            for f in root_dir.rglob(filename):
+                if f.is_file() and not any(part.lower() in ignored_parts for part in f.parts):
+                    candidates.append(f)
 
     if candidates:
-        candidates.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        def sort_priority(f: Path):
+            is_download = str(downloads_dir).lower() in str(f).lower()
+            is_desktop = str(desktop_dir).lower() in str(f).lower()
+            return (1 if (is_download or is_desktop) else 0, f.stat().st_mtime)
+
+        candidates.sort(key=sort_priority, reverse=True)
         return candidates[0].resolve()
 
     return p.resolve()
@@ -112,10 +128,12 @@ class WorkflowPaths:
             target_dwg_out = target_out if target_out.suffix.lower() == ".dwg" else target_out.with_suffix(".dwg")
             target_pdf_out = target_dwg_out.with_suffix(".pdf")
 
-            # Check if there is an existing active zip session for this DWG from prepare phase
+            action_name = str(payload.get("action", "")).lower()
             curr_session_file = base / ".runtime" / "current_zip_session.json"
             reused_zip = None
-            if curr_session_file.is_file():
+
+            # Only reuse an existing wrapped zip during FINALIZE phase for the exact same source DWG
+            if action_name == "finalize" and curr_session_file.is_file():
                 try:
                     with open(curr_session_file, "r", encoding="utf-8") as f:
                         sinfo = json.load(f)
