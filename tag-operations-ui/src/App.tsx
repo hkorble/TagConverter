@@ -245,22 +245,7 @@ function App() {
     }
   }
 
-  async function browsePath(mode: "file" | "output") {
-    try {
-      const response = await fetch(`/api/browse?mode=${mode}`);
-      const data = await response.json();
-      if (data?.path) {
-        if (mode === "file") {
-          handleDwgPathChange(data.path);
-        } else if (mode === "output") {
-          setOutputPath(data.path);
-        }
-        return;
-      }
-    } catch {
-      // Ignore browse errors
-    }
-
+  function browsePath(mode: "file" | "output") {
     if (mode === "file" && dwgFileInputRef.current) {
       dwgFileInputRef.current.click();
     } else if (mode === "output" && outputFileInputRef.current) {
