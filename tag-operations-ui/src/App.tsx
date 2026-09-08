@@ -576,14 +576,14 @@ function App() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            background: "#191c1e",
-                            border: "1px solid #2e3338",
+                            background: "linear-gradient(135deg, #242a1b 0%, #191c1e 100%)",
+                            border: "1px solid #525a37",
                             borderRadius: "8px",
                             padding: "10px 14px",
                           }}
                         >
                           <div>
-                            <small style={{ color: "#8f959e", fontSize: "11px", fontWeight: 600, display: "block" }}>
+                            <small style={{ color: "#b0bc9c", fontSize: "11px", fontWeight: 600, display: "block" }}>
                               {label.toUpperCase()}
                             </small>
                             <strong style={{ color: "#fff", fontSize: "13px" }}>{fileName}</strong>
@@ -612,9 +612,9 @@ function App() {
                               style={{
                                 padding: "6px 12px",
                                 borderRadius: "6px",
-                                background: "#25282c",
-                                border: "1px solid #383d44",
-                                color: "#ccc",
+                                background: "#364028",
+                                border: "1px solid #525a37",
+                                color: "#f2f3ef",
                                 fontSize: "12px",
                                 cursor: "pointer",
                               }}
@@ -687,7 +687,7 @@ function App() {
                     }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #525a37", background: "#364028", color: "#f2f3ef", cursor: "pointer" }}
               >
                 ⚡ Auto-fill from Scovan Tags
               </button>
@@ -700,7 +700,7 @@ function App() {
                     }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #525a37", background: "#364028", color: "#f2f3ef", cursor: "pointer" }}
                 title="Shift every letter forward by 1 (A->B, Z->A) and every number by 1 (0->1, 9->0)"
               >
                 🔀 Scramble (+1 Shift)
@@ -711,7 +711,7 @@ function App() {
                   setDumpText("");
                   setShowDumpModal(true);
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #525a37", background: "#364028", color: "#f2f3ef", cursor: "pointer" }}
                 title="Paste 2-column Excel mapping data (Col 1 = Scovan Tag, Col 2 = Client Tag)"
               >
                 📋 Dump Tags (Paste Mapping)
@@ -722,16 +722,16 @@ function App() {
                     prev.map((r) => ({ ...r, "Client Tag Mapping": "" }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#aaa", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #454f33", background: "#282f1f", color: "#adb79f", cursor: "pointer" }}
               >
                 🗑️ Clear All Mappings
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #2e3338", borderRadius: "8px", background: "#121415" }}>
+            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #525a37", borderRadius: "8px", background: "#121415" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
-                  <tr style={{ background: "#1c1f22", borderBottom: "1px solid #2e3338", color: "#a8b0a2", position: "sticky", top: 0, zIndex: 10 }}>
+                  <tr style={{ background: "#2a321f", borderBottom: "2px solid #525a37", color: "#c8d4b8", position: "sticky", top: 0, zIndex: 10 }}>
                     <th style={{ padding: "12px 16px", width: "60px" }}>Row</th>
                     <th style={{ padding: "12px 16px" }}>Scovan Tag / Source</th>
                     <th style={{ padding: "12px 16px" }}>Client Tag Mapping (Editable)</th>

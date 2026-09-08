@@ -100,8 +100,8 @@ button { color: inherit; }
   justify-content: space-between;
   align-items: center;
   padding: 12px 18px;
-  background: #191c1e;
-  border: 1px solid var(--line);
+  background: linear-gradient(135deg, #2b3322 0%, #1c2117 60%, #161814 100%);
+  border: 1px solid #525a37;
   margin-bottom: 12px;
   border-radius: 2px;
 }
@@ -162,15 +162,15 @@ button { color: inherit; }
   height: 36px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  background: #141618;
-  color: var(--muted);
+  border: 1px solid #525a37;
+  background: #252b1e;
+  color: #c2caa9;
   border-radius: 2px;
 }
 .selected .workflow-icon {
   color: var(--acid);
   border-color: var(--acid);
-  background: #231f1a;
+  background: #313725;
 }
 .workflow-copy { display: grid; }
 .workflow-copy small { font: 700 9px/1.2 "DM Mono"; letter-spacing: .12em; color: var(--muted); margin-bottom: 3px; }
@@ -202,7 +202,7 @@ button { color: inherit; }
 }
 .panel-title span { font: 700 9px/1 "DM Mono"; color: var(--acid); letter-spacing: .14em; }
 .panel-title h2 { font: 700 16px/1.1 "DM Mono"; margin: 2px 0 0; color: #fff; }
-.step-count { border: 1px solid var(--line); padding: 4px 8px; font: 700 10px/1 "DM Mono"; color: var(--muted); }
+.step-count { border: 1px solid #525a37; background: #262c1d; padding: 4px 8px; font: 700 10px/1 "DM Mono"; color: #c2caa9; }
 .compact { margin-bottom: 14px; }
 .run-state {
   padding: 4px 10px;
@@ -295,19 +295,19 @@ button { color: inherit; }
 .mapping-ready {
   margin-top: 18px;
   padding: 14px;
-  border: 1px solid var(--line);
-  background: #191c1e;
-  border-left: 3px solid var(--acid);
+  border: 1px solid #525a37;
+  background: linear-gradient(135deg, #242b1b 0%, #1a1e16 60%, #161814 100%);
+  border-left: 4px solid var(--acid);
 }
 .mapping-header { display: grid; grid-template-columns: 20px 1fr 18px; gap: 10px; align-items: center; }
 .mapping-header > svg:first-child { color: var(--acid); }
 .mapping-header > svg:last-child { color: var(--acid); }
 .mapping-header div { display: grid; gap: 2px; min-width: 0; }
-.mapping-header small { font: 700 8px/1 "DM Mono"; color: var(--muted); letter-spacing: .12em; }
+.mapping-header small { font: 700 8px/1 "DM Mono"; color: #b8c4a4; letter-spacing: .12em; }
 .mapping-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 11px/1.4 "DM Mono"; color: var(--acid); }
-.mapping-ready p { color: #9da398; font: 400 10px/1.4 "DM Mono"; margin: 8px 0 0 0; }
-.secondary-button { height: 40px; padding: 0 16px; background: #25282c; color: #fff; border: 1px solid var(--line-bright); }
-.secondary-button:hover:not(:disabled) { background: #30353a; border-color: var(--olive); }
+.mapping-ready p { color: #b0bc9c; font: 400 10px/1.4 "DM Mono"; margin: 8px 0 0 0; }
+.secondary-button { height: 40px; padding: 0 16px; background: #39422a; color: #f2f3ef; border: 1px solid #525a37; }
+.secondary-button:hover:not(:disabled) { background: #525a37; border-color: #6a7447; color: #fff; }
 
 .notice {
   display: grid;
@@ -348,10 +348,10 @@ button { color: inherit; }
   height: 26px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  background: #191c1e;
+  border: 1px solid #525a37;
+  background: #22281a;
   font: 700 9px/1 "DM Mono";
-  color: var(--muted);
+  color: #b2bea0;
   border-radius: 2px;
 }
 .pipeline-step strong, .pipeline-step div span { display: block; }
