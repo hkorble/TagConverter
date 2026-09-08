@@ -576,14 +576,14 @@ function App() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            background: "#181a17",
-                            border: "1px solid #333830",
+                            background: "#191c1e",
+                            border: "1px solid #2e3338",
                             borderRadius: "8px",
                             padding: "10px 14px",
                           }}
                         >
                           <div>
-                            <small style={{ color: "#8a9285", fontSize: "11px", fontWeight: 600, display: "block" }}>
+                            <small style={{ color: "#8f959e", fontSize: "11px", fontWeight: 600, display: "block" }}>
                               {label.toUpperCase()}
                             </small>
                             <strong style={{ color: "#fff", fontSize: "13px" }}>{fileName}</strong>
@@ -599,7 +599,7 @@ function App() {
                                 padding: "6px 14px",
                                 borderRadius: "6px",
                                 background: "var(--acid)",
-                                color: "#181a17",
+                                color: "#121415",
                                 fontWeight: 700,
                                 fontSize: "12px",
                                 textDecoration: "none",
@@ -612,8 +612,8 @@ function App() {
                               style={{
                                 padding: "6px 12px",
                                 borderRadius: "6px",
-                                background: "#252823",
-                                border: "1px solid #444",
+                                background: "#25282c",
+                                border: "1px solid #383d44",
                                 color: "#ccc",
                                 fontSize: "12px",
                                 cursor: "pointer",
@@ -662,9 +662,9 @@ function App() {
           display: "flex", justifyContent: "center", alignItems: "center", padding: "20px"
         }}>
           <div style={{
-            backgroundColor: "#181a17", border: "1px solid #333830", borderRadius: "12px",
+            backgroundColor: "#191c1e", border: "1px solid #2e3338", borderRadius: "12px",
             width: "100%", maxWidth: "920px", maxHeight: "88vh", display: "flex", flexDirection: "column",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.8)", color: "#e3e5e0", padding: "24px"
+            boxShadow: "0 20px 50px rgba(0,0,0,0.8)", color: "#ecefe9", padding: "24px"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <div>
@@ -673,7 +673,7 @@ function App() {
               </div>
               <button
                 onClick={() => setShowEditor(false)}
-                style={{ background: "transparent", border: "none", color: "#8a9285", cursor: "pointer", fontSize: "22px" }}
+                style={{ background: "transparent", border: "none", color: "#8f959e", cursor: "pointer", fontSize: "22px" }}
               >✕</button>
             </div>
 
@@ -687,7 +687,7 @@ function App() {
                     }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #444", background: "#252823", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
               >
                 ⚡ Auto-fill from Scovan Tags
               </button>
@@ -700,7 +700,7 @@ function App() {
                     }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #444", background: "#252823", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
                 title="Shift every letter forward by 1 (A->B, Z->A) and every number by 1 (0->1, 9->0)"
               >
                 🔀 Scramble (+1 Shift)
@@ -711,7 +711,7 @@ function App() {
                   setDumpText("");
                   setShowDumpModal(true);
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #444", background: "#252823", color: "#fff", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#fff", cursor: "pointer" }}
                 title="Paste 2-column Excel mapping data (Col 1 = Scovan Tag, Col 2 = Client Tag)"
               >
                 📋 Dump Tags (Paste Mapping)
@@ -722,16 +722,16 @@ function App() {
                     prev.map((r) => ({ ...r, "Client Tag Mapping": "" }))
                   );
                 }}
-                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #444", background: "#252823", color: "#aaa", cursor: "pointer" }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #383d44", background: "#25282c", color: "#aaa", cursor: "pointer" }}
               >
                 🗑️ Clear All Mappings
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #2d322b", borderRadius: "8px", background: "#111310" }}>
+            <div style={{ flex: 1, overflowY: "auto", border: "1px solid #2e3338", borderRadius: "8px", background: "#121415" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
-                  <tr style={{ background: "#1d201a", borderBottom: "1px solid #2d322b", color: "#a8b0a2", position: "sticky", top: 0, zIndex: 10 }}>
+                  <tr style={{ background: "#1c1f22", borderBottom: "1px solid #2e3338", color: "#a8b0a2", position: "sticky", top: 0, zIndex: 10 }}>
                     <th style={{ padding: "12px 16px", width: "60px" }}>Row</th>
                     <th style={{ padding: "12px 16px" }}>Scovan Tag / Source</th>
                     <th style={{ padding: "12px 16px" }}>Client Tag Mapping (Editable)</th>
@@ -739,9 +739,9 @@ function App() {
                 </thead>
                 <tbody>
                   {gridRows.map((row, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid #1f231d" }}>
+                    <tr key={idx} style={{ borderBottom: "1px solid #222529" }}>
                       <td style={{ padding: "10px 16px", color: "#6e766a" }}>{idx + 1}</td>
-                      <td style={{ padding: "10px 16px", fontWeight: 600, color: "#d2d8ce" }}>{row["Scovan Tag"]}</td>
+                      <td style={{ padding: "10px 16px", fontWeight: 600, color: "#dcdfd8" }}>{row["Scovan Tag"]}</td>
                       <td style={{ padding: "10px 16px" }}>
                         <input
                           type="text"
@@ -756,8 +756,8 @@ function App() {
                           }}
                           placeholder="Type client tag mapping here..."
                           style={{
-                            width: "100%", padding: "8px 12px", background: "#1b1e19", border: "1px solid #383e34",
-                            borderRadius: "6px", color: "#d8fe52", fontSize: "14px", fontWeight: 600, outline: "none"
+                            width: "100%", padding: "8px 12px", background: "#151719", border: "1px solid #363b42",
+                            borderRadius: "6px", color: "var(--acid)", fontSize: "14px", fontWeight: 600, outline: "none"
                           }}
                         />
                       </td>
@@ -768,7 +768,7 @@ function App() {
             </div>
 
             {gridSavedMessage && (
-              <div style={{ marginTop: "12px", color: "#d8fe52", fontSize: "13px", fontWeight: 600 }}>
+              <div style={{ marginTop: "12px", color: "var(--acid)", fontSize: "13px", fontWeight: 600 }}>
                 ✓ {gridSavedMessage}
               </div>
             )}
@@ -776,7 +776,7 @@ function App() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "18px" }}>
               <button
                 onClick={() => setShowEditor(false)}
-                style={{ padding: "10px 18px", borderRadius: "6px", background: "transparent", border: "1px solid #444", color: "#ccc", cursor: "pointer" }}
+                style={{ padding: "10px 18px", borderRadius: "6px", background: "transparent", border: "1px solid #383d44", color: "#ccc", cursor: "pointer" }}
               >
                 Close
               </button>
@@ -784,7 +784,7 @@ function App() {
                 onClick={() => saveMappingData(derivedMapping)}
                 disabled={savingGrid}
                 style={{
-                  padding: "10px 24px", borderRadius: "6px", background: "#d8fe52", border: "none", color: "#171916",
+                  padding: "10px 24px", borderRadius: "6px", background: "var(--acid)", border: "none", color: "#121415",
                   fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
                 }}
               >
@@ -803,9 +803,9 @@ function App() {
           display: "flex", justifyContent: "center", alignItems: "center", padding: "20px"
         }}>
           <div style={{
-            backgroundColor: "#181a17", border: "1px solid #333830", borderRadius: "12px",
+            backgroundColor: "#191c1e", border: "1px solid #2e3338", borderRadius: "12px",
             width: "100%", maxWidth: "680px", display: "flex", flexDirection: "column",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.9)", color: "#e3e5e0", padding: "24px"
+            boxShadow: "0 20px 50px rgba(0,0,0,0.9)", color: "#ecefe9", padding: "24px"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <div>
@@ -814,7 +814,7 @@ function App() {
               </div>
               <button
                 onClick={() => setShowDumpModal(false)}
-                style={{ background: "transparent", border: "none", color: "#8a9285", cursor: "pointer", fontSize: "22px" }}
+                style={{ background: "transparent", border: "none", color: "#8f959e", cursor: "pointer", fontSize: "22px" }}
               >✕</button>
             </div>
 
@@ -828,13 +828,13 @@ function App() {
               placeholder={`Paste 2-column data here...\nExample:\n33GA-C4-C5\tCLIENT-TAG-01\n114GA-C1-C5#\tCLIENT-TAG-02`}
               rows={10}
               style={{
-                width: "100%", padding: "12px", background: "#111310", border: "1px solid #383e34",
-                borderRadius: "6px", color: "#d8fe52", fontFamily: "monospace", fontSize: "13px", outline: "none"
+                width: "100%", padding: "12px", background: "#121415", border: "1px solid #363b42",
+                borderRadius: "6px", color: "var(--acid)", fontFamily: "monospace", fontSize: "13px", outline: "none"
               }}
             />
 
             {dumpStatus && (
-              <div style={{ marginTop: "12px", color: "#d8fe52", fontSize: "13px", fontWeight: 600 }}>
+              <div style={{ marginTop: "12px", color: "var(--acid)", fontSize: "13px", fontWeight: 600 }}>
                 {dumpStatus}
               </div>
             )}
@@ -842,14 +842,14 @@ function App() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "16px" }}>
               <button
                 onClick={() => setShowDumpModal(false)}
-                style={{ padding: "8px 16px", borderRadius: "6px", background: "transparent", border: "1px solid #444", color: "#ccc", cursor: "pointer" }}
+                style={{ padding: "8px 16px", borderRadius: "6px", background: "transparent", border: "1px solid #383d44", color: "#ccc", cursor: "pointer" }}
               >
                 Cancel
               </button>
               <button
                 onClick={applyDumpedTags}
                 style={{
-                  padding: "8px 20px", borderRadius: "6px", background: "#d8fe52", border: "none", color: "#171916",
+                  padding: "8px 20px", borderRadius: "6px", background: "var(--acid)", border: "none", color: "#121415",
                   fontWeight: 700, cursor: "pointer"
                 }}
               >
