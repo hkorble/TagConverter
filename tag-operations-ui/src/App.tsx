@@ -400,7 +400,7 @@ function App() {
       <section className="industrial-banner" id="top" style={{ marginTop: "12px", padding: "16px 24px" }}>
         <div className="banner-title">
           <h1 style={{ fontSize: "36px", fontWeight: 800, margin: 0, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>PadXPRESS</h1>
-          <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--acid)", letterSpacing: "1.5px", marginTop: "4px" }}>
+          <div style={{ fontSize: "16px", fontWeight: 700, color: "#FF8200", letterSpacing: "1.5px", marginTop: "4px" }}>
             Dual Tagging and Translation
           </div>
         </div>
@@ -432,15 +432,15 @@ function App() {
               <span
                 className="radio"
                 style={{
-                  background: isSelected ? "var(--acid)" : "transparent",
-                  border: isSelected ? "1px solid var(--acid)" : "1px solid #555",
+                  background: isSelected ? "#3c2525" : "transparent",
+                  border: isSelected ? "2px solid #3c2525" : "1px solid #525a37",
                   borderRadius: "50%",
                   width: "22px",
                   height: "22px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#181a17",
+                  color: "#FF8200",
                 }}
               >
                 {isSelected && <CircleDot size={16} strokeWidth={3} />}
@@ -534,7 +534,7 @@ function App() {
               <div style={{ display: "flex", gap: "12px", marginTop: "14px", flexWrap: "wrap" }}>
                 <button
                   className="primary-button"
-                  style={{ minWidth: "auto", height: "44px", padding: "0 18px", background: "var(--acid)", color: "var(--dark)" }}
+                  style={{ minWidth: "auto", height: "44px", padding: "0 18px", background: "#3c2525", color: "#ffffff", border: "1px solid #525a37" }}
                   onClick={() => fetchMappingData(derivedMapping)}
                 >
                   <FileSpreadsheet size={18} /> Open Online Mapping Editor
@@ -551,7 +551,7 @@ function App() {
 
               {phase === "complete" && Object.keys(completedOutputs).length > 0 && (
                 <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px dashed #3a4035" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--acid)", letterSpacing: "1px", marginBottom: "10px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#FF8200", letterSpacing: "1px", marginBottom: "10px" }}>
                     DOWNLOAD GENERATED OUTPUTS SEPARATELY
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -598,8 +598,9 @@ function App() {
                                 gap: "6px",
                                 padding: "6px 14px",
                                 borderRadius: "6px",
-                                background: "var(--acid)",
-                                color: "#121415",
+                                background: "#3c2525",
+                                color: "#ffffff",
+                                border: "1px solid #525a37",
                                 fontWeight: 700,
                                 fontSize: "12px",
                                 textDecoration: "none",
@@ -668,7 +669,7 @@ function App() {
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <div>
-                <span style={{ fontSize: "11px", color: "var(--acid)", fontWeight: 700, letterSpacing: "1px" }}>WEB SPREADSHEET EDITOR</span>
+                <span style={{ fontSize: "11px", color: "#FF8200", fontWeight: 700, letterSpacing: "1px" }}>WEB SPREADSHEET EDITOR</span>
                 <h2 style={{ margin: "4px 0 0 0", fontSize: "22px", fontWeight: 700 }}>Client Tag Mapping Sheet</h2>
               </div>
               <button
@@ -757,7 +758,7 @@ function App() {
                           placeholder="Type client tag mapping here..."
                           style={{
                             width: "100%", padding: "8px 12px", background: "#151719", border: "1px solid #363b42",
-                            borderRadius: "6px", color: "var(--acid)", fontSize: "14px", fontWeight: 600, outline: "none"
+                            borderRadius: "6px", color: "#FF8200", fontSize: "14px", fontWeight: 600, outline: "none"
                           }}
                         />
                       </td>
@@ -768,7 +769,7 @@ function App() {
             </div>
 
             {gridSavedMessage && (
-              <div style={{ marginTop: "12px", color: "var(--acid)", fontSize: "13px", fontWeight: 600 }}>
+              <div style={{ marginTop: "12px", color: "#FF8200", fontSize: "13px", fontWeight: 600 }}>
                 ✓ {gridSavedMessage}
               </div>
             )}
@@ -784,7 +785,7 @@ function App() {
                 onClick={() => saveMappingData(derivedMapping)}
                 disabled={savingGrid}
                 style={{
-                  padding: "10px 24px", borderRadius: "6px", background: "var(--acid)", border: "none", color: "#121415",
+                  padding: "10px 24px", borderRadius: "6px", background: "#3c2525", border: "1px solid #525a37", color: "#ffffff",
                   fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
                 }}
               >
@@ -809,7 +810,7 @@ function App() {
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <div>
-                <span style={{ fontSize: "11px", color: "var(--acid)", fontWeight: 700, letterSpacing: "1px" }}>BULK PASTE</span>
+                <span style={{ fontSize: "11px", color: "#FF8200", fontWeight: 700, letterSpacing: "1px" }}>BULK PASTE</span>
                 <h2 style={{ margin: "4px 0 0 0", fontSize: "20px", fontWeight: 700 }}>Dump Tag Mappings</h2>
               </div>
               <button
@@ -829,12 +830,12 @@ function App() {
               rows={10}
               style={{
                 width: "100%", padding: "12px", background: "#161b11", border: "1px solid #525a37",
-                borderRadius: "6px", color: "var(--acid)", fontFamily: "monospace", fontSize: "13px", outline: "none"
+                borderRadius: "6px", color: "#FF8200", fontFamily: "monospace", fontSize: "13px", outline: "none"
               }}
             />
 
             {dumpStatus && (
-              <div style={{ marginTop: "12px", color: "var(--acid)", fontSize: "13px", fontWeight: 600 }}>
+              <div style={{ marginTop: "12px", color: "#FF8200", fontSize: "13px", fontWeight: 600 }}>
                 {dumpStatus}
               </div>
             )}
@@ -849,7 +850,7 @@ function App() {
               <button
                 onClick={applyDumpedTags}
                 style={{
-                  padding: "8px 20px", borderRadius: "6px", background: "var(--acid)", border: "none", color: "#121415",
+                  padding: "8px 20px", borderRadius: "6px", background: "#3c2525", border: "1px solid #525a37", color: "#ffffff",
                   fontWeight: 700, cursor: "pointer"
                 }}
               >

@@ -3,20 +3,21 @@
 :root {
   font-family: "DM Mono", "Consolas", monospace;
   color: #edece8;
-  background: #3c2525;
+  background: #FF8200;
   font-synthesis: none;
   --ink: #edece8;
   --paper: #272f1f;
   --muted: #b8bea0;
   --line: #525a37;
   --line-bright: #6c784b;
-  --acid: #FF8200;
-  --dark: #3c2525;
-  --warm: #FF8200;
+  --acid: #3c2525;
+  --dark: #FF8200;
+  --warm: #3c2525;
   --steel: #3a82f7;
   --olive: #525a37;
   --sage: #749955;
   --maroon: #3c2525;
+  --orange: #FF8200;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +25,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #3c2525;
+  background: #FF8200;
   color: #edece8;
   overflow-x: hidden;
   overflow-y: hidden;
@@ -63,8 +64,8 @@ button { color: inherit; }
   height: 28px;
   display: grid;
   place-items: center;
-  background: var(--acid);
-  color: #121415;
+  background: #3c2525;
+  color: #ffffff;
   font-weight: 800;
   border-radius: 2px;
 }
@@ -80,8 +81,8 @@ button { color: inherit; }
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--acid);
-  box-shadow: 0 0 8px rgba(255, 130, 0, 0.5);
+  background: #3c2525;
+  box-shadow: 0 0 8px rgba(60, 37, 37, 0.6);
 }
 .icon-button {
   border: 0;
@@ -109,7 +110,7 @@ button { color: inherit; }
 .sys-badge {
   font: 700 9px/1 "DM Mono";
   letter-spacing: .15em;
-  color: var(--acid);
+  color: #FF8200;
 }
 .industrial-banner h1 {
   margin: 0;
@@ -154,7 +155,7 @@ button { color: inherit; }
 }
 .workflow-card.selected {
   background: #333a25;
-  border: 1px solid var(--acid);
+  border: 2px solid #3c2525;
   color: #fff;
 }
 .workflow-icon {
@@ -168,16 +169,16 @@ button { color: inherit; }
   border-radius: 2px;
 }
 .selected .workflow-icon {
-  color: var(--acid);
-  border-color: var(--acid);
-  background: #313725;
+  color: #FF8200;
+  border-color: #3c2525;
+  background: #3c2525;
 }
 .workflow-copy { display: grid; }
 .workflow-copy small { font: 700 9px/1.2 "DM Mono"; letter-spacing: .12em; color: var(--muted); margin-bottom: 3px; }
-.selected .workflow-copy small { color: var(--acid); }
+.selected .workflow-copy small { color: #FF8200; }
 .workflow-copy strong { font: 700 15px/1 "DM Mono"; color: #fff; margin-bottom: 4px; }
 .workflow-copy > span { color: #9da398; font: 400 11px/1.3 "DM Mono"; }
-.radio { color: var(--acid); }
+.radio { color: #FF8200; }
 
 /* WORKSPACE GRID */
 .workspace-grid {
@@ -200,7 +201,7 @@ button { color: inherit; }
   padding-bottom: 8px;
   border-bottom: 1px solid #525a37;
 }
-.panel-title span { font: 700 9px/1 "DM Mono"; color: var(--acid); letter-spacing: .14em; }
+.panel-title span { font: 700 9px/1 "DM Mono"; color: #FF8200; letter-spacing: .14em; }
 .panel-title h2 { font: 700 16px/1.1 "DM Mono"; margin: 2px 0 0; color: #fff; }
 .step-count { border: 1px solid #525a37; background: #262c1d; padding: 4px 8px; font: 700 10px/1 "DM Mono"; color: #c2caa9; }
 .compact { margin-bottom: 14px; }
@@ -212,7 +213,7 @@ button { color: inherit; }
   color: #c4cea8 !important;
   border: 1px solid #525a37;
 }
-.run-state.running { background: var(--acid); color: #121415 !important; border-color: var(--acid); }
+.run-state.running { background: #3c2525; color: #ffffff !important; border-color: #525a37; }
 .run-state.complete { background: #222e1e; color: #92bf6e !important; border-color: var(--sage); }
 .run-state.error { background: #3c2525; color: #ff9b91 !important; border-color: #613636; }
 
@@ -245,7 +246,7 @@ button { color: inherit; }
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--acid);
+  color: #FF8200;
   font: 700 12px/1.4 "DM Mono";
 }
 .path-field input::placeholder { color: #7b856a; font-weight: 400; }
@@ -262,7 +263,7 @@ button { color: inherit; }
   justify-content: center;
   transition: color .15s;
 }
-.browse-button:hover { color: var(--acid); }
+.browse-button:hover { color: #FF8200; }
 
 /* BUTTONS */
 .action-row { display: flex; gap: 14px; align-items: center; margin-top: 18px; }
@@ -281,11 +282,11 @@ button { color: inherit; }
 .primary-button {
   min-width: 230px;
   height: 44px;
-  background: var(--acid);
-  color: #121415;
-  border: 1px solid var(--acid);
+  background: #3c2525;
+  color: #ffffff;
+  border: 1px solid #525a37;
 }
-.primary-button:hover:not(:disabled) { background: #ffa033; }
+.primary-button:hover:not(:disabled) { background: #503131; }
 .primary-button:disabled, .secondary-button:disabled { opacity: .4; cursor: not-allowed; }
 .action-row p { margin: 0; color: var(--muted); font: 400 10px/1.4 "DM Mono"; }
 .spin { animation: spin 1s linear infinite; }
@@ -297,14 +298,14 @@ button { color: inherit; }
   padding: 14px;
   border: 1px solid #525a37;
   background: linear-gradient(135deg, #242b1b 0%, #1a1e16 60%, #161814 100%);
-  border-left: 4px solid var(--acid);
+  border-left: 4px solid #3c2525;
 }
 .mapping-header { display: grid; grid-template-columns: 20px 1fr 18px; gap: 10px; align-items: center; }
-.mapping-header > svg:first-child { color: var(--acid); }
-.mapping-header > svg:last-child { color: var(--acid); }
+.mapping-header > svg:first-child { color: #FF8200; }
+.mapping-header > svg:last-child { color: #FF8200; }
 .mapping-header div { display: grid; gap: 2px; min-width: 0; }
 .mapping-header small { font: 700 8px/1 "DM Mono"; color: #b8c4a4; letter-spacing: .12em; }
-.mapping-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 11px/1.4 "DM Mono"; color: var(--acid); }
+.mapping-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 11px/1.4 "DM Mono"; color: #FF8200; }
 .mapping-ready p { color: #b0bc9c; font: 400 10px/1.4 "DM Mono"; margin: 8px 0 0 0; }
 .secondary-button { height: 40px; padding: 0 16px; background: #39422a; color: #f2f3ef; border: 1px solid #525a37; }
 .secondary-button:hover:not(:disabled) { background: #525a37; border-color: #6a7447; color: #fff; }
@@ -359,9 +360,9 @@ button { color: inherit; }
 .pipeline-step div span { margin-top: 2px; font: 400 10px/1.3 "DM Mono"; color: #8f997f; }
 .pipeline-step.done .step-node { border-color: var(--sage); background: var(--sage); color: #121415; }
 .pipeline-step.done strong, .pipeline-step.active strong { color: #fff; }
-.pipeline-step.active .step-node { color: #121415; border-color: var(--acid); background: var(--acid); }
+.pipeline-step.active .step-node { color: #ffffff; border-color: #3c2525; background: #3c2525; }
 
-footer { display: flex; justify-content: space-between; padding: 12px 0 0; font: 700 9px/1 "DM Mono"; letter-spacing: .12em; color: var(--muted); }
+footer { display: flex; justify-content: space-between; padding: 12px 0 0; font: 700 9px/1 "DM Mono"; letter-spacing: .12em; color: #3c2525; }
 
 @media (max-width: 900px) {
   .app-shell { width: min(100% - 20px, 760px); }
