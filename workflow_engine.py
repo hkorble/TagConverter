@@ -68,6 +68,10 @@ class WorkflowPaths:
     lisp: Path
     script: Path
     attsync: Path
+    is_wrapped_dwg: bool = False
+    original_dwg: Path | None = None
+    target_dwg_output: Path | None = None
+    target_pdf_output: Path | None = None
 
     @classmethod
     def from_payload(cls, payload: dict[str, object]) -> "WorkflowPaths":
@@ -89,13 +93,52 @@ class WorkflowPaths:
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         if not raw_output:
-            output_path = (outputs_dir / f"{clean_stem}{suffix}{ext}").resolve()
+            target_out = (outputs_dir / f"{clean_stem}{suffix}{ext}").resolve()
         else:
             p_out = Path(raw_output).expanduser()
             if p_out.is_absolute() or ("\\" in raw_output or "/" in raw_output):
-                output_path = p_out.resolve()
+                target_out = p_out.resolve()
             else:
-                output_path = (outputs_dir / raw_output).resolve()
+                target_out = (outputs_dir / raw_output).resolve()
+
+        is_wrapped = False
+        orig_dwg = None
+        target_dwg_out = None
+        target_pdf_out = None
+
+        if not is_zip and dwg.is_file():
+            is_wrapped = True
+            orig_dwg = dwg
+            target_dwg_out = target_out if target_out.suffix.lower() == ".dwg" else target_out.with_suffix(".dwg")
+            target_pdf_out = target_dwg_out.with_suffix(".pdf")
+
+            # Check if there is an existing active zip session for this DWG from prepare phase
+            curr_session_file = base / ".runtime" / "current_zip_session.json"
+            reused_zip = None
+            if curr_session_file.is_file():
+                try:
+                    with open(curr_session_file, "r", encoding="utf-8") as f:
+                        sinfo = json.load(f)
+                    if sinfo.get("original_dwg") == str(orig_dwg) and sinfo.get("wrapped_zip"):
+                        cand = Path(sinfo["wrapped_zip"])
+                        if cand.is_file():
+                            reused_zip = cand
+                except Exception:
+                    pass
+
+            if reused_zip:
+                dwg = reused_zip
+            else:
+                wrapped_dir = base / ".runtime" / "wrapped_zips"
+                wrapped_dir.mkdir(parents=True, exist_ok=True)
+                wrapped_zip_path = (wrapped_dir / f"{clean_stem}_{uuid.uuid4().hex[:6]}.zip").resolve()
+                with zipfile.ZipFile(wrapped_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(orig_dwg, f"NATIVE/{orig_dwg.name}")
+                dwg = wrapped_zip_path
+
+            output_path = (outputs_dir / f"{clean_stem}{suffix}.zip").resolve()
+        else:
+            output_path = target_out
 
         return cls(
             base_dir=base,
@@ -108,10 +151,21 @@ class WorkflowPaths:
             lisp=Path(str(payload.get("lisp_path") or app_root / "ExportTagData.lsp")).resolve(),
             script=base / "run_script.scr",
             attsync=Path(str(payload.get("attsync_path") or app_root / "attsyn.scr")).resolve(),
+            is_wrapped_dwg=is_wrapped,
+            original_dwg=orig_dwg,
+            target_dwg_output=target_dwg_out,
+            target_pdf_output=target_pdf_out,
         )
 
     def public(self) -> dict[str, str]:
-        return {key: str(value) for key, value in asdict(self).items()}
+        d = {key: str(value) for key, value in asdict(self).items() if value is not None}
+        if self.is_wrapped_dwg and self.target_dwg_output:
+            d["output"] = str(self.target_dwg_output)
+            if self.target_pdf_output:
+                d["pdf"] = str(self.target_pdf_output)
+            if self.original_dwg:
+                d["dwg"] = str(self.original_dwg)
+        return d
 
 
 def _validate_workflow(workflow: str) -> None:
@@ -202,13 +256,26 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
             "session_id": session_id,
             "dwg_files": dwg_manifest,
             "unique_tags": unique_tags,
-            "extract_dir": str(extract_dir.resolve())
+            "extract_dir": str(extract_dir.resolve()),
+            "is_wrapped_dwg": paths.is_wrapped_dwg,
+            "original_dwg": str(paths.original_dwg) if paths.original_dwg else None,
+            "target_dwg_output": str(paths.target_dwg_output) if paths.target_dwg_output else None,
+            "target_pdf_output": str(paths.target_pdf_output) if paths.target_pdf_output else None,
+            "wrapped_zip": str(paths.dwg) if paths.is_wrapped_dwg else None,
         }, f, indent=2)
 
     curr_session_file = paths.base_dir / ".runtime" / "current_zip_session.json"
     curr_session_file.parent.mkdir(parents=True, exist_ok=True)
     with open(curr_session_file, "w", encoding="utf-8") as f:
-        json.dump({"session_id": session_id, "manifest_path": str(manifest_path.resolve())}, f, indent=2)
+        json.dump({
+            "session_id": session_id,
+            "manifest_path": str(manifest_path.resolve()),
+            "is_wrapped_dwg": paths.is_wrapped_dwg,
+            "original_dwg": str(paths.original_dwg) if paths.original_dwg else None,
+            "target_dwg_output": str(paths.target_dwg_output) if paths.target_dwg_output else None,
+            "target_pdf_output": str(paths.target_pdf_output) if paths.target_pdf_output else None,
+            "wrapped_zip": str(paths.dwg) if paths.is_wrapped_dwg else None,
+        }, f, indent=2)
 
     mapping_rows = []
     for tag in sorted(unique_tags.keys()):
@@ -275,6 +342,12 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
 
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
+
+    is_wrapped = bool(manifest.get("is_wrapped_dwg") or paths.is_wrapped_dwg)
+    target_dwg_str = manifest.get("target_dwg_output") or (str(paths.target_dwg_output) if paths.target_dwg_output else None)
+    target_pdf_str = manifest.get("target_pdf_output") or (str(paths.target_pdf_output) if paths.target_pdf_output else None)
+    target_dwg = Path(target_dwg_str) if target_dwg_str else None
+    target_pdf = Path(target_pdf_str) if target_pdf_str else None
 
     dwg_files = manifest["dwg_files"]
     extract_dir = Path(manifest["extract_dir"])
@@ -426,7 +499,43 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
                 zf.write(fpath, arcname)
 
     log(f"Complete ZIP package generated: {paths.output}")
-    return {"mapped_rows": len(user_mappings), "phase": "complete", "paths": paths.public()}
+
+    if is_wrapped and target_dwg:
+        matching_dwgs = [p for p in out_staging.rglob("*.dwg") if not p.name.endswith(".bak")]
+        matching_pdfs = [p for p in out_staging.rglob("*.pdf") if not p.name.endswith(".bak")]
+
+        if matching_dwgs:
+            target_dwg.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(matching_dwgs[0], target_dwg)
+            log(f"Extracted updated DWG: {target_dwg.name}")
+
+        if matching_pdfs and target_pdf:
+            target_pdf.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(matching_pdfs[0], target_pdf)
+            log(f"Extracted plotted PDF: {target_pdf.name}")
+
+        pub_paths = paths.public()
+        pub_paths["output"] = str(target_dwg.resolve())
+        outs = {workflow: str(target_dwg.resolve())}
+        pdf_str = None
+        if target_pdf and target_pdf.is_file():
+            pub_paths["pdf"] = str(target_pdf.resolve())
+            outs[f"{workflow}_pdf"] = str(target_pdf.resolve())
+            pdf_str = str(target_pdf.resolve())
+        pub_paths["outputs"] = outs
+
+        return {
+            "mapped_rows": len(user_mappings),
+            "phase": "complete",
+            "paths": pub_paths,
+            "outputs": outs,
+            "pdf": pdf_str,
+        }
+
+    pub_paths = paths.public()
+    outs = {workflow: str(paths.output.resolve())}
+    pub_paths["outputs"] = outs
+    return {"mapped_rows": len(user_mappings), "phase": "complete", "paths": pub_paths, "outputs": outs}
 
 
 def parse_workflows(workflow_input: str | list[str] | None) -> list[str]:
@@ -443,77 +552,8 @@ def parse_workflows(workflow_input: str | list[str] | None) -> list[str]:
 def prepare_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log = print) -> dict[str, object]:
     workflows = parse_workflows(workflow)
     effective_workflow = "client_translation" if "client_translation" in workflows else workflows[0]
-
     _validate_workflow(effective_workflow)
-    if paths.dwg.suffix.lower() == ".zip":
-        return prepare_workflow_zip(effective_workflow, paths, log)
-
-    from annotation import generate_spatial_registry
-    from main_translation import generate_spatial_registry_translation
-
-    if not paths.dwg.is_file():
-        raise FileNotFoundError(f"Drawing not found: {paths.dwg}")
-    log("00  Cleaning workspace artifacts to prevent cross-contamination")
-    clean_workspace_artifacts(paths.base_dir, preserve_mapping=False)
-    log("01  Extracting tagged groups from the drawing")
-    extract_groups(paths.dwg, paths.base_dir, paths.lisp, paths.script, log)
-    log("02  Building the shared spatial registry")
-    if effective_workflow == "client_translation":
-        generate_spatial_registry_translation(
-            str(paths.dwg), str(paths.registry), str(paths.groups), str(paths.large_groups)
-        )
-    else:
-        generate_spatial_registry(str(paths.dwg), str(paths.registry), str(paths.groups))
-    log("03  Creating the client mapping workbook")
-    rows = write_mapping_sheet(paths.registry, paths.mapping, effective_workflow)
-    log(f"Mapping workbook ready with {rows} tag(s): {paths.mapping}")
-    return {"mapping_rows": rows, "phase": "mapping_ready", "paths": paths.public()}
-
-
-def _finalize_workflow_single(workflow: str, paths: WorkflowPaths, log: Log = print) -> dict[str, object]:
-    _validate_workflow(workflow)
-    from update_connected import update_connected_pids
-
-    if not paths.mapping.is_file():
-        raise FileNotFoundError(f"Mapping workbook not found: {paths.mapping}")
-    if not paths.registry.is_file():
-        raise FileNotFoundError(f"Registry workbook not found: {paths.registry}")
-
-    log("04  Validating and applying client mappings")
-    mapped = apply_mapping_sheet(paths.registry, paths.mapping, workflow)
-    if paths.output.exists():
-        paths.output.unlink()
-    log("05  Writing mapped tags into the updated drawing")
-    freeze_dual = (workflow == "client_translation")
-    update_connected_pids(str(paths.dwg), str(paths.registry), str(paths.output), freeze_dual=freeze_dual)
-
-    pdf_output = paths.output.with_suffix(".pdf")
-    log("06  Synchronizing AutoCAD block attributes & plotting vector PDF")
-    _run_attsync(paths.output, paths.attsync, log, pdf_path=pdf_output)
-
-    # Clean up any AutoCAD .bak backup files created during export/save
-    bak_patterns = [
-        paths.output.with_suffix(".bak"),
-        paths.output.parent / f"{paths.output.name}.bak",
-        paths.dwg.with_suffix(".bak"),
-        paths.dwg.parent / f"{paths.dwg.name}.bak",
-        paths.base_dir / f"{paths.output.stem}.bak",
-    ]
-    for bak_path in bak_patterns:
-        try:
-            if bak_path.is_file():
-                bak_path.unlink()
-        except Exception:
-            pass
-
-    pub_paths = paths.public()
-    pdf_str = str(pdf_output.resolve()) if pdf_output.is_file() else None
-    if pdf_str:
-        pub_paths["pdf"] = pdf_str
-
-    clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=True)
-    log(f"Complete: DWG -> {paths.output}, PDF -> {pdf_output}")
-    return {"mapped_rows": mapped, "phase": "complete", "paths": pub_paths, "pdf": pdf_str}
+    return prepare_workflow_zip(effective_workflow, paths, log)
 
 
 def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log = print) -> dict[str, object]:
@@ -521,15 +561,25 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
     for wf in workflows:
         _validate_workflow(wf)
 
-    is_zip = paths.dwg.suffix.lower() == ".zip"
-    ext = ".zip" if is_zip else ".dwg"
+    curr_session_file = paths.base_dir / ".runtime" / "current_zip_session.json"
+    is_wrapped = paths.is_wrapped_dwg
+    if not is_wrapped and curr_session_file.is_file():
+        try:
+            with open(curr_session_file, "r", encoding="utf-8") as f:
+                sinfo = json.load(f)
+            if sinfo.get("is_wrapped_dwg"):
+                is_wrapped = True
+        except Exception:
+            pass
+
+    ext = ".dwg" if is_wrapped else ".zip"
 
     if len(workflows) > 1:
         log(f"Running multi-workflow batch for: {', '.join(workflows)}")
         outputs = {}
         mapped_rows = 0
 
-        raw_out = paths.output
+        raw_out = paths.target_dwg_output if (is_wrapped and paths.target_dwg_output) else paths.output
         raw_stem = re.sub(r"_Updated$", "", raw_out.stem, flags=re.IGNORECASE)
         raw_stem = re.sub(r"_(DualTagged|ClientTranslated|dualtagged|translated)$", "", raw_stem, flags=re.IGNORECASE)
 
@@ -537,30 +587,30 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
             label = "dualtagged" if wf == "dual_tagging" else "translated"
             out_file = raw_out.parent / f"{raw_stem}_{label}{ext}"
 
-            wf_registry = paths.registry
-            if not is_zip and paths.registry.is_file():
-                wf_registry = paths.registry.parent / f"Master_Registry_{wf}.xlsx"
-                shutil.copy2(paths.registry, wf_registry)
-
             wf_paths = WorkflowPaths(
                 base_dir=paths.base_dir,
                 dwg=paths.dwg,
-                registry=wf_registry,
+                registry=paths.registry,
                 mapping=paths.mapping,
-                output=out_file,
+                output=out_file if not is_wrapped else paths.output.parent / f"{raw_stem}_{label}.zip",
                 groups=paths.groups,
                 large_groups=paths.large_groups,
                 lisp=paths.lisp,
                 script=paths.script,
                 attsync=paths.attsync,
+                is_wrapped_dwg=is_wrapped,
+                original_dwg=paths.original_dwg,
+                target_dwg_output=out_file if is_wrapped else None,
+                target_pdf_output=out_file.with_suffix(".pdf") if is_wrapped else None,
             )
             log(f"\n=========================================")
             log(f"Processing Workflow: {wf.upper()} -> {out_file.name}")
             log(f"=========================================")
-            res = (finalize_workflow_zip if is_zip else _finalize_workflow_single)(wf, wf_paths, log)
-            outputs[wf] = str(out_file.resolve())
-            if not is_zip and res.get("pdf"):
-                outputs[f"{wf}_pdf"] = str(res["pdf"])
+            res = finalize_workflow_zip(wf, wf_paths, log)
+            if res.get("outputs"):
+                outputs.update(res["outputs"])
+            else:
+                outputs[wf] = str(out_file.resolve())
             mapped_rows = max(mapped_rows, int(res.get("mapped_rows", res.get("mapping_rows", 0))))
 
         pub_paths = paths.public()
@@ -569,15 +619,7 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
         return {"mapped_rows": mapped_rows, "phase": "complete", "paths": pub_paths, "outputs": outputs}
     else:
         wf = workflows[0]
-        res = (finalize_workflow_zip if is_zip else _finalize_workflow_single)(wf, paths, log)
-        pub_paths = paths.public()
-        outs = {wf: str(paths.output.resolve())}
-        if not is_zip and res.get("pdf"):
-            outs[f"{wf}_pdf"] = str(res["pdf"])
-            pub_paths["pdf"] = str(res["pdf"])
-        pub_paths["outputs"] = outs
-        res["outputs"] = outs
-        res["paths"] = pub_paths
+        res = finalize_workflow_zip(wf, paths, log)
         clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=False)
         return res
 
@@ -677,9 +719,10 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
     comtypes.CoInitialize()
     try:
         try:
-            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=5.0)
+            acad = retry_com(lambda: comtypes.client.GetActiveObject("AutoCAD.Application"), timeout=3.0)
+            st = acad.GetAcadState()
             log("Connected to active AutoCAD session.")
-            idle_deadline = time.monotonic() + 15
+            idle_deadline = time.monotonic() + 10
             while time.monotonic() < idle_deadline:
                 try:
                     st = acad.GetAcadState()
@@ -688,16 +731,17 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
                 except Exception:
                     pass
                 time.sleep(0.5)
-            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=60.0)
+            document = retry_com(lambda: acad.Documents.Open(os.path.abspath(drawing)), timeout=20.0)
         except Exception:
             acad = comtypes.client.CreateObject("AutoCAD.Application")
-            retry_com(lambda: setattr(acad, "Visible", False))
+            retry_com(lambda: setattr(acad, "Visible", False), timeout=10.0)
             created_application = True
             log("Started dedicated AutoCAD session for ATTSYNC.")
             try:
                 import ctypes
 
-                hwnd = retry_com(lambda: int(acad.HWND))
+                hwnd = retry_com(lambda: int(acad.HWND), timeout=5.0)
+                acad_hwnd = hwnd
                 process_id = ctypes.c_ulong()
                 ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
                 if process_id.value:
@@ -775,11 +819,9 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
                     cleanup_errors.append(
                         f"could not close the drawing: {second_close_error} (initially {first_close_error})"
                     )
-        if created_application and acad is not None:
-            try:
-                retry_com(lambda: acad.Quit(), timeout=30)
-            except Exception as exc:
-                cleanup_errors.append(f"could not close AutoCAD: {exc}")
+        # Note: We intentionally do NOT call acad.Quit() between individual drawings in a batch.
+        # Closing the drawing via document.Close(False) leaves the AutoCAD engine warm and quiescent,
+        # preventing race conditions and RPC_E_CALL_REJECTED errors on subsequent drawings.
         try:
             marker.unlink(missing_ok=True)
         except Exception as exc:

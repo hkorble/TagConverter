@@ -46,7 +46,7 @@ def run_ui_test_suite() -> bool:
             title = page.inner_text("h1").strip()
             subtitle = page.inner_text(".banner-title div").strip()
 
-            title_ok = "PadX Automan" in title
+            title_ok = "PadXPRESS" in title or "PadX Automan" in title
             sub_ok = "Dual Tagging and Translation" in subtitle
 
             if title_ok and sub_ok:
