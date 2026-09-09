@@ -377,6 +377,9 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
         client = str(row.get("Client Tag Mapping", "")).strip()
         if scovan and client and not pd.isna(client):
             user_mappings[scovan] = client
+            scovan_stripped = scovan.rstrip("#").strip()
+            if scovan_stripped not in user_mappings:
+                user_mappings[scovan_stripped] = client
 
     log(f"04  Loaded {len(user_mappings)} active tag mapping(s) from mapping workbook.")
 
@@ -417,8 +420,9 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
             asset_value = row.get("Asset Content/Value", "")
             placeholder_value = row.get("Placeholder Content", "")
             source_tag = unpack_tag(asset_value, block)
-            if source_tag in user_mappings:
-                mapped_client_tag = user_mappings[source_tag]
+            source_tag_stripped = source_tag.rstrip("#").strip()
+            mapped_client_tag = user_mappings.get(source_tag) or user_mappings.get(source_tag_stripped)
+            if mapped_client_tag:
                 if workflow == "client_translation":
                     formatted_tag = format_mapping(mapped_client_tag, asset_value, block)
                     reg_df.at[conn_idx, "Mapping Status"] = "VALID_OVERWRITE"

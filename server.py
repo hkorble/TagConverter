@@ -204,6 +204,44 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
+        if path == "/api/export-two-column-mapping":
+            query = parse_qs(urlparse(self.path).query)
+            target_str = query.get("path", [""])[0]
+            target_path = Path(target_str).resolve() if target_str else None
+            if not target_path or not target_path.is_file():
+                project_file = (ROOT / target_str).resolve()
+                if project_file.is_file():
+                    target_path = project_file
+            if not target_path or not target_path.is_file():
+                self._json({"error": f"Mapping file not found: {target_str}"}, HTTPStatus.NOT_FOUND)
+                return
+            try:
+                import io
+                import pandas as pd
+                df_raw = pd.read_excel(target_path, sheet_name="Mapping")
+                export_data = []
+                for _, r in df_raw.iterrows():
+                    export_data.append({
+                        "Scovan Tag": str(r.get("Scovan Tag") or "").strip(),
+                        "Client Tag Mapping": str(r.get("Client Tag Mapping") or "").strip() if not pd.isna(r.get("Client Tag Mapping")) else ""
+                    })
+                df = pd.DataFrame(export_data) if export_data else pd.DataFrame(columns=["Scovan Tag", "Client Tag Mapping"])
+                bio = io.BytesIO()
+                with pd.ExcelWriter(bio, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=False, sheet_name="Mapping")
+                    ws = writer.sheets["Mapping"]
+                    ws.column_dimensions["A"].width = 35
+                    ws.column_dimensions["B"].width = 35
+                body = bio.getvalue()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", 'attachment; filename="Scovan_Client_Mapping_Sheet.xlsx"')
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as exc:
+                self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
         if path.startswith("/api/runs/"):
             run_id = path.rsplit("/", 1)[-1]
             with RUNS_LOCK:
@@ -215,6 +253,40 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/export-two-column-mapping":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                raw_rows = payload.get("rows", [])
+                filename = str(payload.get("filename", "Scovan_Client_Mapping_Sheet.xlsx"))
+                if not filename.lower().endswith(".xlsx"):
+                    filename += ".xlsx"
+                import io
+                import pandas as pd
+                export_data = []
+                for r in raw_rows:
+                    if isinstance(r, dict):
+                        export_data.append({
+                            "Scovan Tag": str(r.get("Scovan Tag") or "").strip(),
+                            "Client Tag Mapping": str(r.get("Client Tag Mapping") or "").strip()
+                        })
+                df = pd.DataFrame(export_data) if export_data else pd.DataFrame(columns=["Scovan Tag", "Client Tag Mapping"])
+                bio = io.BytesIO()
+                with pd.ExcelWriter(bio, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=False, sheet_name="Mapping")
+                    ws = writer.sheets["Mapping"]
+                    ws.column_dimensions["A"].width = 35
+                    ws.column_dimensions["B"].width = 35
+                body = bio.getvalue()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as exc:
+                self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
         if path == "/api/mapping":
             try:
                 length = int(self.headers.get("Content-Length", "0"))

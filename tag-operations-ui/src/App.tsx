@@ -104,22 +104,30 @@ function App() {
       return;
     }
 
-    const lookup: Record<string, string> = {};
+    const exactLookup: Record<string, string> = {};
+    const normLookup: Record<string, string> = {};
     const lines = dumpText.split(/\r?\n/);
     for (const line of lines) {
       if (!line.trim()) continue;
-      const parts = line.split(/\t|,|\s{2,}/).map((p) => p.trim());
+      const parts = line.split(/\t|,|\s{2,}/).map((p) => p.trim().replace(/^["']|["']$/g, ""));
       if (parts.length >= 2 && parts[0] && parts[1]) {
-        lookup[parts[0].toUpperCase()] = parts[1];
+        const raw = parts[0].toUpperCase();
+        const stripped = raw.replace(/[\s#]+$/, "");
+        exactLookup[raw] = parts[1];
+        if (stripped && !normLookup[stripped]) {
+          normLookup[stripped] = parts[1];
+        }
       }
     }
 
     let matchCount = 0;
     const nextGridRows = gridRows.map((row) => {
-      const scovan = String(row["Scovan Tag"] || "").trim().toUpperCase();
-      if (lookup[scovan]) {
+      const scovanRaw = String(row["Scovan Tag"] || "").trim().toUpperCase();
+      const scovanStripped = scovanRaw.replace(/[\s#]+$/, "");
+      const matched = exactLookup[scovanRaw] || normLookup[scovanStripped] || normLookup[scovanRaw];
+      if (matched) {
         matchCount++;
-        return { ...row, "Client Tag Mapping": lookup[scovan] };
+        return { ...row, "Client Tag Mapping": matched };
       }
       return row;
     });
@@ -133,6 +141,50 @@ function App() {
         setDumpStatus("");
       }, 1200);
     }
+  }
+
+  async function downloadTwoColumnSheet() {
+    try {
+      const response = await fetch("/api/export-two-column-mapping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rows: gridRows,
+          filename: "Scovan_Client_Mapping_Sheet.xlsx",
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Scovan_Client_Mapping_Sheet.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+    } catch {
+      // fallback to CSV if fetch fails
+    }
+
+    const csvRows = [
+      ["Scovan Tag", "Client Tag Mapping"],
+      ...gridRows.map((r) => [
+        `"${String(r["Scovan Tag"] || "").replace(/"/g, '""')}"`,
+        `"${String(r["Client Tag Mapping"] || "").replace(/"/g, '""')}"`,
+      ]),
+    ];
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.map((e) => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "Scovan_Client_Mapping_Sheet.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   const dwgFileInputRef = useRef<HTMLInputElement>(null);
@@ -726,6 +778,13 @@ function App() {
                 📋 Dump Tags (Paste Mapping)
               </button>
               <button
+                onClick={downloadTwoColumnSheet}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #FF8200", background: "#3c2525", color: "#ffffff", cursor: "pointer" }}
+                title="Download a clean 2-column spreadsheet (Col 1 = Scovan Tag, Col 2 = Client Tag Mapping) with current progress for project engineers"
+              >
+                📥 Download 2-Column Sheet (.xlsx)
+              </button>
+              <button
                 onClick={() => {
                   setGridRows((prev) =>
                     prev.map((r) => ({ ...r, "Client Tag Mapping": "" }))
@@ -828,7 +887,7 @@ function App() {
             </div>
 
             <p style={{ fontSize: "13px", color: "#a8b0a2", margin: "0 0 12px 0" }}>
-              Paste 2-column mapping data from Excel or text (Col 1 = Scovan Tag, Col 2 = Client Tag). Any exact matching Scovan tags will automatically be filled.
+              Paste 2-column mapping data from Excel or text (Col 1 = Scovan Tag, Col 2 = Client Tag). Matching automatically ignores trailing '#' so tags like XXXXX and XXXXX# match seamlessly.
             </p>
 
             <textarea
