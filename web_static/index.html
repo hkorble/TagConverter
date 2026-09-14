@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PadXConvert — Convert Scovan Tags to Client Tags</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Scovan Tactical Military Olive Drab & Brand Orange Theme */
+      --bg: #2d3522;
+      --surface: #1a2114;
+      --surface-hover: #232b1c;
+      --surface-border: #3b482b;
+      --text: #f8fafc;
+      --text-muted: #9caa8a;
+      --accent: #f26522;
+      --accent-hover: #ea580c;
+      --accent-soft: rgba(242, 101, 34, 0.15);
+      --success: #84cc16;
+      --success-soft: rgba(132, 204, 22, 0.15);
+      --warning: #f59e0b;
+      --warning-soft: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.15);
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #14190f;
+      backdrop-filter: blur(12px);
+      border-bottom: 2px solid #2d3820;
+      padding: 0.85rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-scovan-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #f26522;
+      letter-spacing: -0.03em;
+    }
+
+    .scovan-chevrons {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      margin-left: 2px;
+    }
+
+    .scovan-chevrons svg {
+      width: 14px;
+      height: 18px;
+    }
+
+    .brand-divider {
+      width: 1.5px;
+      height: 32px;
+      background: #3c492d;
+      margin: 0 0.5rem;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #f26522;
+      font-weight: 600;
+    }
+
+    .header-meta-group {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+      border-right: 1px solid #3c492d;
+      padding-right: 1.5rem;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .meta-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #8b9c7a;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: white;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .card-title svg {
+      color: var(--accent);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--bg);
+      padding: 0.35rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+      margin-bottom: 1.25rem;
+      width: fit-content;
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Input Sections */
+    .input-pane {
+      display: none;
+    }
+
+    .input-pane.active {
+      display: block;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(14, 18, 11, 0.5);
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .dropzone-icon {
+      margin-bottom: 0.75rem;
+      color: var(--accent);
+    }
+
+    .dropzone-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .dropzone-subtext {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-hover);
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    textarea.dump-textarea {
+      width: 100%;
+      height: 160px;
+      background: var(--bg);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    textarea.dump-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .metric-subtext {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Batch Fill Toolbar Container & Tabs */
+    .batch-toolbar-container {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--surface-border);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+
+    .batch-mode-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      background: rgba(0, 0, 0, 0.25);
+      border-bottom: 1px solid var(--surface-border);
+      flex-wrap: wrap;
+    }
+
+    .batch-mode-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.35rem 0.85rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+
+    .batch-mode-tab:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .batch-mode-tab.active {
+      background: rgba(242, 101, 34, 0.15);
+      border-color: rgba(242, 101, 34, 0.4);
+      color: var(--accent);
+    }
+
+    .batch-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.85rem 1.25rem;
+    }
+
+    .batch-cond-toolbar {
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .cond-assignment-row, .cond-clause-row, .cond-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .cond-step-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 65px;
+    }
+
+    .cond-prefix {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cond-and-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      margin-left: 0.25rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--surface-border);
+      background: rgba(0, 0, 0, 0.15);
+      transition: all 0.15s ease;
+    }
+
+    .cond-and-toggle:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .batch-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .select, .input-text {
+      background: var(--bg);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 0.45rem 0.75rem;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .select:focus, .input-text:focus {
+      border-color: var(--accent);
+    }
+
+    /* Table */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      max-height: 580px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    thead th {
+      background: #182234;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--surface-border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    tbody td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .mono-tag {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--surface-border);
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .tag-badge.badge-ready {
+      background: rgba(34, 197, 94, 0.16);
+      color: #4ade80;
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+
+    .tag-badge.badge-pending {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.38);
+    }
+
+    .tag-badge.badge-ht {
+      background: var(--accent-soft);
+      color: #f26522;
+      border-color: rgba(96, 165, 250, 0.3);
+    }
+
+    .tag-badge.badge-comp {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border-color: rgba(192, 132, 252, 0.3);
+    }
+
+    .tag-badge.badge-piping {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .tag-badge.badge-valve {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .tag-badge.badge-unidentified {
+      background: var(--danger-soft);
+      color: #f87171;
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    .token-pill {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      background: var(--warning-soft);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      margin: 0 1px;
+    }
+
+    .token-pill.resolved {
+      background: var(--success-soft);
+      color: #34d399;
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+
+    .field-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 140px;
+    }
+
+    .field-input-item {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .field-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      width: 75px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .field-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.25rem 0.45rem;
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: var(--accent);
+      background: #111827;
+    }
+
+    /* Actions Bottom Bar */
+    .actions-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--surface-border);
+    }
+
+    .export-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: #1e293b;
+      border: 1px solid var(--surface-border);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    #toast.toast-success {
+      border-color: var(--success);
+    }
+
+    #toast.toast-error {
+      border-color: var(--danger);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .filter-pill {
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--surface-border);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-pill:hover {
+      color: var(--text);
+      border-color: #475569;
+    }
+
+    .filter-pill.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state svg {
+      color: #475569;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Debugging Mode Styles */
+    .btn-debug {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+      font-weight: 600;
+    }
+
+    .btn-debug:hover {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: #f59e0b;
+      color: #fde68a;
+    }
+
+    .btn-debug.active {
+      background: #f59e0b;
+      color: #0f172a;
+      border-color: #fbbf24;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+    }
+
+    .debug-banner {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1.25rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .debug-row {
+      background: rgba(15, 23, 42, 0.75) !important;
+      border-left: 3px solid #f59e0b;
+    }
+
+    .exploded-container {
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .exploded-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .exploded-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .exploded-flow {
+      display: flex;
+      align-items: stretch;
+      gap: 0.6rem;
+      overflow-x: auto;
+      padding: 0.35rem 0;
+    }
+
+    .exploded-chip {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 140px;
+    }
+
+    .exploded-chip.matched {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .exploded-chip.unmatched {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.08);
+      border-style: dashed;
+    }
+
+    .exploded-chip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .exploded-chip-raw {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f8fafc;
+      word-break: break-all;
+    }
+
+    .exploded-chip-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .exploded-chip-meaning {
+      font-size: 0.75rem;
+      color: #fb923c;
+      font-weight: 500;
+    }
+
+    .exploded-chip-error {
+      font-size: 0.7rem;
+      color: #f87171;
+      font-weight: 500;
+      margin-top: 0.2rem;
+      line-height: 1.3;
+    }
+
+    .sub-sections-box {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.45rem 0.55rem;
+      border-radius: var(--radius-sm);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    .sub-sections-title {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: #93c5fd;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.1rem;
+    }
+
+    .sub-section-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+    }
+
+    .sub-section-code {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #f8fafc;
+      background: #334155;
+      padding: 0.05rem 0.3rem;
+      border-radius: 2px;
+      font-size: 0.72rem;
+    }
+
+    .sub-section-label {
+      color: #6ee7b7;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+    }
+
+    .sub-section-meaning {
+      color: #cbd5e1;
+      font-size: 0.7rem;
+      text-align: right;
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      color: #475569;
+      font-weight: 700;
+    }
+
+    .exploded-diag-box {
+      background: #090d16;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .diag-syntax-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    .diag-label {
+      color: var(--text-muted);
+      width: 140px;
+      flex-shrink: 0;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+    }
+
+    .diag-val {
+      color: #e2e8f0;
+      word-break: break-all;
+    }
+
+    .mismatch-pill {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin: 2px 0;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-scovan-logo">
+        Scovan
+        <span class="scovan-chevrons">
+          <svg viewBox="0 0 14 18" fill="none">
+            <path d="M2 3L8 9L2 15" stroke="#f26522" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg viewBox="0 0 14 18" fill="none">
+            <path d="M2 3L8 9L2 15" stroke="#84cc16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
+      <div class="brand-divider"></div>
+      <div>
+        <div class="brand-title">PadXConvert</div>
+        <div class="brand-subtitle">Convert Scovan Tags to Client Tags</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <div class="header-meta-group">
+        <div class="meta-item">
+          <span class="meta-label">CAD RUNTIME</span>
+          <span class="meta-val">AutoCAD + ODA Direct</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">ENVIRONMENT</span>
+          <span class="meta-val">Local Engine :: Port 8770</span>
+        </div>
+      </div>
+      <button id="debug-mode-btn" class="btn btn-debug" onclick="toggleDebugMode()" title="Toggle Exploded Sequence Debugging View">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+        <span id="debug-mode-text">🐞 Debug Mode: OFF</span>
+      </button>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Engine Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Source Input Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Select Tag Data Source
+        </div>
+        <div id="source-summary" style="font-size: 0.85rem; color: var(--text-muted);">
+          Ready to parse input
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="tabs">
+        <button id="tab-btn-upload" class="tab-btn active" onclick="switchInputTab('upload')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Spreadsheet
+        </button>
+        <button id="tab-btn-dump" class="tab-btn" onclick="switchInputTab('dump')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          Copy/Paste Dump
+        </button>
+      </div>
+
+      <!-- Tab 1: Upload Spreadsheet -->
+      <div id="tab-upload" class="input-pane active">
+        <input type="file" id="file-input" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleFileChosen(event)" />
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+          <div class="dropzone-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+          </div>
+          <div class="dropzone-text">Choose an Excel (.xlsx, .xls) or CSV spreadsheet</div>
+          <div class="dropzone-subtext">or drag and drop your drawing tag sheet here (reads Column 1)</div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Copy/Paste Dump -->
+      <div id="tab-dump" class="input-pane">
+        <textarea id="dump-input" class="dump-textarea" placeholder="Paste Scovan tags here (one per line, or copied directly from an Excel column)...&#10;Example:&#10;HT-FG-A100-1&#10;MIQ-PJB-BFW-A100-1&#10;HTPK-FG-B200-2&#10;RTD-FG-A100-1"></textarea>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+          <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;" onclick="loadSampleTags()">
+            Load Sample Scovan Tags
+          </button>
+          <button class="btn btn-primary" onclick="parseDumpedText()">
+            Parse Pasted Tags
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Summary Metrics Cards -->
+    <div class="metrics-grid" id="metrics-section" style="display: none;">
+      <div class="metric-card">
+        <div class="metric-label">Total Tags Loaded</div>
+        <div class="metric-value" id="m-total-tags">0</div>
+        <div class="metric-subtext" id="m-source-name">From spreadsheet</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Identified Sequences</div>
+        <div class="metric-value" style="color: var(--success);" id="m-identified">0</div>
+        <div class="metric-subtext">Matched sequence rules</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Unidentified Tags</div>
+        <div class="metric-value" style="color: var(--warning);" id="m-unidentified">0</div>
+        <div class="metric-subtext">Non-standard syntax</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Missing Fields Required</div>
+        <div class="metric-value" style="color: #f26522;" id="m-fields-count">0</div>
+        <div class="metric-subtext" id="m-fields-list">e.g. plant_name, circuit</div>
+      </div>
+    </div>
+
+    <!-- Review & Breakout Grid Card -->
+    <div class="card" id="results-card" style="display: none;">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+          Tag Sequence Breakout & Translation
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="card-debug-btn" class="btn btn-debug" style="font-size: 0.8rem; padding: 0.4rem 0.85rem;" onclick="toggleDebugMode()">
+            🐞 Debug Mode
+          </button>
+          <input type="text" id="search-input" class="input-text" placeholder="Filter tags..." oninput="handleSearch(event)" style="width: 200px;" />
+        </div>
+      </div>
+
+      <!-- Debug Exploded Mode Banner -->
+      <div class="debug-banner" id="debug-banner" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.35rem;">🔬</span>
+          <div>
+            <div style="font-weight: 700; color: #fbbf24; font-size: 0.88rem;">Sequence Debugging Mode Active</div>
+            <div style="font-size: 0.78rem; color: #cbd5e1;">
+              Exploded diagnostics breakdown shows detected sections vs unrecognized tokens and compares against expected sequence rules.
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="toggleAllExploded(true)">💥 Explode All</button>
+          <button class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="toggleAllExploded(false)">Collapse All</button>
+        </div>
+      </div>
+
+      <!-- Sequence Filter Tabs -->
+      <div class="filter-tabs" id="filter-tabs-container">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Batch Fill Toolbar Card / Container -->
+      <div class="batch-toolbar-container" id="batch-toolbar">
+        <!-- Mode Tabs Header -->
+        <div class="batch-mode-tabs">
+          <button type="button" class="batch-mode-tab active" id="btn-mode-bulk" onclick="switchBatchMode('bulk')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Bulk Fill
+          </button>
+          <button type="button" class="batch-mode-tab" id="btn-mode-cond" onclick="switchBatchMode('conditional')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            🎯 Conditional Rule Fill
+          </button>
+          <div style="flex: 1;"></div>
+          <div id="cond-match-indicator" style="display: none; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #f26522; font-weight: 600; background: rgba(242, 101, 34, 0.12); padding: 0.25rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(242, 101, 34, 0.35);">
+            <span id="cond-match-badge">0 tags match criteria</span>
+          </div>
+        </div>
+
+        <!-- Mode 1: Simple Bulk Fill Pane -->
+        <div id="pane-batch-bulk" class="batch-toolbar">
+          <div class="batch-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+            Fill Missing Field:
+          </div>
+          <select id="batch-field-select" class="select">
+            <!-- Populated dynamically -->
+          </select>
+          <input type="text" id="batch-value-input" class="input-text" placeholder="Value to apply (e.g. 01, PLANT-A)..." />
+          <button class="btn btn-secondary" onclick="applyBatchFill('active')">Apply to Current Filter</button>
+          <button class="btn btn-outline" onclick="applyBatchFill('all')">Apply to All Tags</button>
+        </div>
+
+        <!-- Mode 2: Conditional Rule Fill Pane -->
+        <div id="pane-batch-cond" class="batch-cond-toolbar" style="display: none;">
+          <!-- Row 1: Target Assignment -->
+          <div class="cond-assignment-row">
+            <span class="cond-step-label">1. Target:</span>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">Set Field</span>
+            <select id="cond-target-field" class="select" onchange="updateConditionalMatches()">
+              <!-- Populated dynamically -->
+            </select>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">=</span>
+            <input type="text" id="cond-target-val" class="input-text" style="min-width: 180px;" placeholder="Value to assign (e.g. 01)..." oninput="updateConditionalMatches()" />
+          </div>
+
+          <!-- Row 2: Condition 1 -->
+          <div class="cond-clause-row">
+            <span class="cond-step-label">2. Criteria:</span>
+            <span class="cond-prefix">WHERE</span>
+            <select id="cond-attr-1" class="select" onchange="updateConditionalMatches()">
+              <option value="fluid_code">Commodity / Fluid Code (e.g. S, PE, FG)</option>
+              <option value="scovan_sequence_number">Sequence Number (e.g. P0101, I0102)</option>
+              <option value="scovan_tag">Full Scovan Tag</option>
+              <option value="sequence_name">Sequence Rule Type (e.g. Piping Line, Valve)</option>
+              <option value="line_size">Line / Valve Size</option>
+              <option value="valve_type">Valve Type (e.g. GA, CH, BF)</option>
+              <option value="piping_category">Piping Spec / Category (e.g. C)</option>
+              <option value="piping_material">Piping Material (e.g. 1)</option>
+              <option value="electrical_component">Electrical Component</option>
+            </select>
+            <select id="cond-op-1" class="select" style="min-width: 125px;" onchange="updateConditionalMatches()">
+              <option value="equals">equals (=)</option>
+              <option value="contains">contains</option>
+              <option value="starts_with">starts with</option>
+              <option value="ends_with">ends with</option>
+              <option value="not_equals">does not equal (!=)</option>
+            </select>
+            <input type="text" id="cond-val-1" class="input-text" placeholder="Value (e.g. S or STEAM)..." oninput="updateConditionalMatches()" />
+
+            <label class="cond-and-toggle">
+              <input type="checkbox" id="cond-and-toggle-cb" onchange="toggleCondClause2(this.checked)" />
+              <span>+ AND Clause</span>
+            </label>
+          </div>
+
+          <!-- Row 3: Condition 2 (Optional AND) -->
+          <div class="cond-clause-row" id="cond-clause-2-row" style="display: none;">
+            <span class="cond-step-label" style="visibility: hidden;">2.</span>
+            <span class="cond-prefix" style="color: #f26522; font-weight: 700;">AND</span>
+            <select id="cond-attr-2" class="select" onchange="updateConditionalMatches()">
+              <option value="scovan_sequence_number">Sequence Number (e.g. P0101, I0102)</option>
+              <option value="fluid_code">Commodity / Fluid Code (e.g. S, PE, FG)</option>
+              <option value="scovan_tag">Full Scovan Tag</option>
+              <option value="sequence_name">Sequence Rule Type (e.g. Piping Line, Valve)</option>
+              <option value="line_size">Line / Valve Size</option>
+              <option value="valve_type">Valve Type</option>
+              <option value="piping_category">Piping Spec / Category</option>
+              <option value="piping_material">Piping Material</option>
+              <option value="electrical_component">Electrical Component</option>
+            </select>
+            <select id="cond-op-2" class="select" style="min-width: 125px;" onchange="updateConditionalMatches()">
+              <option value="equals">equals (=)</option>
+              <option value="contains">contains</option>
+              <option value="starts_with">starts with</option>
+              <option value="ends_with">ends with</option>
+              <option value="not_equals">does not equal (!=)</option>
+            </select>
+            <input type="text" id="cond-val-2" class="input-text" placeholder="Value (e.g. P0110)..." oninput="updateConditionalMatches()" />
+          </div>
+
+          <!-- Row 4: Actions & Live Preview -->
+          <div class="cond-actions-row">
+            <button class="btn btn-primary" onclick="applyConditionalBatchFill()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Apply Conditional Fill
+            </button>
+            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="resetConditionalForm()">Reset Filter</button>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">
+              Rule will update <strong id="cond-preview-count" style="color: #f26522;">0</strong> tag(s) requiring this field.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="table-container">
+        <table id="tags-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;">#</th>
+              <th>Scovan Tag</th>
+              <th>Sequence Rule</th>
+              <th>Client Translation Template</th>
+              <th>Missing Information Columns</th>
+              <th>Final Client Translation</th>
+              <th style="width: 100px;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bottom Export & Finalize Actions -->
+      <div class="actions-bar">
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          <span id="resolved-summary">0 of 0 tags ready</span>
+        </div>
+        <div class="export-group">
+          <button class="btn btn-outline" onclick="copyTwoColumnToClipboard()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            Copy 2-Column TSV
+          </button>
+          <button class="btn btn-secondary" onclick="downloadBreakoutWorkbook()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Breakout Excel (.xlsx)
+          </button>
+          <button class="btn btn-success" onclick="downloadFinalTranslations()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Final 2-Column Excel (.xlsx)
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    // State
+    let currentTagsData = null; // { total_count, records, category_counts, available_missing_fields }
+    let fieldValuesById = {};   // { [id]: { [fieldName]: value } }
+    let activeFilter = 'all';
+    let searchQuery = '';
+    let isDebugMode = false;
+    let explodedRows = new Set();
+
+    function toggleDebugMode() {
+      isDebugMode = !isDebugMode;
+      const btn = document.getElementById('debug-mode-btn');
+      const cardBtn = document.getElementById('card-debug-btn');
+      const text = document.getElementById('debug-mode-text');
+      const banner = document.getElementById('debug-banner');
+
+      if (isDebugMode) {
+        btn.classList.add('active');
+        if (cardBtn) cardBtn.classList.add('active');
+        text.textContent = '🐞 Debug Mode: ON';
+        banner.style.display = 'flex';
+        // Automatically explode all unidentified tags when entering debug mode
+        if (currentTagsData && currentTagsData.records) {
+          currentTagsData.records.forEach(r => {
+            if (!r.is_identified) explodedRows.add(r.id);
+          });
+        }
+        showToast('🐞 Debug Mode ON: Exploded breakdown displayed for unidentified sequences.', 'success');
+      } else {
+        btn.classList.remove('active');
+        if (cardBtn) cardBtn.classList.remove('active');
+        text.textContent = '🐞 Debug Mode: OFF';
+        banner.style.display = 'none';
+        explodedRows.clear();
+        showToast('Debug Mode OFF.', 'success');
+      }
+      renderFilterTabs();
+      renderTable();
+    }
+
+    function toggleRowExplode(recId) {
+      if (explodedRows.has(recId)) {
+        explodedRows.delete(recId);
+      } else {
+        explodedRows.add(recId);
+      }
+      renderTable();
+    }
+
+    function toggleAllExploded(expand) {
+      if (!currentTagsData || !currentTagsData.records) return;
+      if (expand) {
+        currentTagsData.records.forEach(r => explodedRows.add(r.id));
+        showToast('Exploded breakdown for all tags.');
+      } else {
+        explodedRows.clear();
+        showToast('Collapsed all exploded sections.');
+      }
+      renderTable();
+    }
+
+    // Drag and drop setup
+    const dropzone = document.getElementById('dropzone');
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+    dropzone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `show toast-${type}`;
+      setTimeout(() => {
+        toast.className = '';
+      }, 3500);
+    }
+
+    function switchInputTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll('.input-pane').forEach(pane => {
+        pane.classList.remove('active');
+      });
+
+      if (tab === 'upload') {
+        const btn = document.getElementById('tab-btn-upload') || document.querySelectorAll('.tab-btn')[0];
+        if (btn) btn.classList.add('active');
+        document.getElementById('tab-upload').classList.add('active');
+      } else if (tab === 'dump') {
+        const btn = document.getElementById('tab-btn-dump') || document.querySelectorAll('.tab-btn')[1];
+        if (btn) btn.classList.add('active');
+        document.getElementById('tab-dump').classList.add('active');
+      }
+    }
+
+    function handleFileChosen(event) {
+      const file = event.target.files[0];
+      if (file) {
+        uploadFile(file);
+      }
+    }
+
+    async function uploadFile(file) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result.split(',')[1];
+        try {
+          const res = await fetch('/api/parse-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, content: base64Data })
+          });
+          const json = await res.json();
+          if (json.error) {
+            showToast(json.error, 'error');
+            return;
+          }
+          document.getElementById('source-summary').textContent = `Loaded from file: ${file.name} (${json.tags_count} tags)`;
+          loadProcessedData(json.data);
+          showToast(`Successfully parsed ${json.tags_count} tags from ${file.name}`);
+        } catch (err) {
+          showToast(`Upload failed: ${err.message}`, 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function browseLocalFile() {
+      try {
+        const res = await fetch('/api/browse');
+        const json = await res.json();
+        if (json.path) {
+          document.getElementById('browse-chosen-path').textContent = `Selected: ${json.path}`;
+          if (json.data) {
+            document.getElementById('source-summary').textContent = `Loaded from: ${json.path}`;
+            loadProcessedData(json.data);
+            showToast(`Loaded ${json.data.total_count} tags from local file`);
+          } else if (json.error) {
+            showToast(`Error parsing file: ${json.error}`, 'error');
+          }
+        }
+      } catch (err) {
+        showToast(`File dialog failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function parseDumpedText() {
+      const text = document.getElementById('dump-input').value;
+      if (!text.trim()) {
+        showToast('Please paste some tags in the box first.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/parse-dump', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const json = await res.json();
+        if (json.error) {
+          showToast(json.error, 'error');
+          return;
+        }
+        document.getElementById('source-summary').textContent = `Loaded from pasted dump (${json.tags_count} tags)`;
+        loadProcessedData(json.data);
+        showToast(`Successfully parsed ${json.tags_count} pasted tags`);
+      } catch (err) {
+        showToast(`Failed parsing dumped tags: ${err.message}`, 'error');
+      }
+    }
+
+    function loadSampleTags() {
+      const samples = [
+        "HT-FG-A100-1",
+        "HT-BFW-A100-1",
+        "HT-PE-B200-2",
+        "MIQ-PJB-FG-A100-1",
+        "HTPK-FG-B200-2",
+        "RTD-BFW-A100-1",
+        "HT-DW-C300-1",
+        "PWR Kit-PE-C300-1"
+      ];
+      document.getElementById('dump-input').value = samples.join('\n');
+      showToast("Loaded 8 sample Scovan tags into the dump box.");
+    }
+
+    function loadProcessedData(data) {
+      currentTagsData = data;
+      fieldValuesById = {};
+
+      // Initialize fieldValuesById
+      data.records.forEach(r => {
+        fieldValuesById[r.id] = { ...(r.missing_fields || {}) };
+      });
+
+      // Update metrics
+      document.getElementById('metrics-section').style.display = 'grid';
+      document.getElementById('results-card').style.display = 'block';
+
+      document.getElementById('m-total-tags').textContent = data.total_count;
+      const matched = data.records.filter(r => r.is_identified).length;
+      document.getElementById('m-identified').textContent = matched;
+      document.getElementById('m-unidentified').textContent = data.total_count - matched;
+      document.getElementById('m-fields-count').textContent = data.available_missing_fields.length;
+      document.getElementById('m-fields-list').textContent = data.available_missing_fields.join(', ') || 'None required';
+
+      // Populate batch fill dropdowns
+      const select = document.getElementById('batch-field-select');
+      const condTargetSelect = document.getElementById('cond-target-field');
+      if (select) select.innerHTML = '';
+      if (condTargetSelect) condTargetSelect.innerHTML = '';
+
+      if (data.available_missing_fields.length === 0) {
+        if (select) select.innerHTML = '<option value="">(No missing fields)</option>';
+        if (condTargetSelect) condTargetSelect.innerHTML = '<option value="">(No missing fields)</option>';
+      } else {
+        data.available_missing_fields.forEach(f => {
+          if (select) {
+            const opt1 = document.createElement('option');
+            opt1.value = f;
+            opt1.textContent = f;
+            select.appendChild(opt1);
+          }
+          if (condTargetSelect) {
+            const opt2 = document.createElement('option');
+            opt2.value = f;
+            opt2.textContent = f;
+            condTargetSelect.appendChild(opt2);
+          }
+        });
+      }
+      updateConditionalMatches();
+
+      // Populate filter tabs
+      renderFilterTabs();
+      renderTable();
+    }
+
+    function renderFilterTabs() {
+      const container = document.getElementById('filter-tabs-container');
+      container.innerHTML = '';
+
+      const counts = currentTagsData.category_counts || {};
+      const total = currentTagsData.total_count;
+      const partialCount = currentTagsData.records.filter(r => !r.is_identified && r.diagnostics && r.diagnostics.matched_count > 0).length;
+
+      const createPill = (id, label, count, isWarning = false) => {
+        const btn = document.createElement('button');
+        btn.className = `filter-pill ${activeFilter === id ? 'active' : ''}`;
+        if (isWarning && activeFilter !== id) {
+          btn.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+          btn.style.color = '#fbbf24';
+        }
+        btn.innerHTML = `${label} <span style="opacity: 0.75; font-size: 0.72rem;">(${count})</span>`;
+        btn.onclick = () => {
+          activeFilter = id;
+          renderFilterTabs();
+          renderTable();
+        };
+        return btn;
+      };
+
+      container.appendChild(createPill('all', 'All Sequences', total));
+      if (partialCount > 0) {
+        container.appendChild(createPill('partial', '⚠️ Partial Matches (Exploded)', partialCount, true));
+      }
+      Object.keys(counts).forEach(k => {
+        const seqMeta = currentTagsData.records.find(r => r.sequence_key === k);
+        const name = seqMeta ? seqMeta.sequence_name : k;
+        container.appendChild(createPill(k, name, counts[k]));
+      });
+    }
+
+    function handleSearch(e) {
+      searchQuery = e.target.value.toLowerCase().trim();
+      renderTable();
+    }
+
+    function computeClientTranslation(record) {
+      const template = record.template_translation;
+      if (template === 'N/A') return 'N/A';
+
+      const fields = fieldValuesById[record.id] || {};
+      let result = template;
+      Object.keys(fields).forEach(f => {
+        const val = fields[f];
+        if (val && String(val).trim()) {
+          result = result.split(`{${f}}`).join(String(val).trim());
+        }
+      });
+      return result;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      if (!currentTagsData || !currentTagsData.records.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No tags loaded.</td></tr>';
+        return;
+      }
+
+      const filtered = currentTagsData.records.filter(r => {
+        if (activeFilter === 'partial') {
+          if (r.is_identified || !r.diagnostics || r.diagnostics.matched_count === 0) return false;
+        } else if (activeFilter !== 'all' && r.sequence_key !== activeFilter) {
+          return false;
+        }
+        if (searchQuery) {
+          const matchTag = r.scovan_tag.toLowerCase().includes(searchQuery);
+          const matchTrans = (r.client_translation || '').toLowerCase().includes(searchQuery);
+          if (!matchTag && !matchTrans) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No tags match current filter.</td></tr>';
+        return;
+      }
+
+      let resolvedCount = 0;
+
+      filtered.forEach(r => {
+        const currentTrans = computeClientTranslation(r);
+        const missingKeys = Object.keys(r.missing_fields || {});
+        const hasUnresolved = missingKeys.some(k => !fieldValuesById[r.id]?.[k]);
+        const isResolved = r.is_identified && !hasUnresolved;
+        if (isResolved) resolvedCount++;
+
+        const isExploded = explodedRows.has(r.id) || (isDebugMode && !r.is_identified);
+
+        const tr = document.createElement('tr');
+
+        // ID
+        const tdId = document.createElement('td');
+        tdId.style.color = 'var(--text-muted)';
+        tdId.textContent = r.id;
+        tr.appendChild(tdId);
+
+        // Scovan Tag + Explode Button
+        const tdTag = document.createElement('td');
+        tdTag.className = 'mono-tag';
+        const tagSpan = document.createElement('div');
+        tagSpan.textContent = r.scovan_tag;
+        tdTag.appendChild(tagSpan);
+
+        const explodeBtn = document.createElement('button');
+        explodeBtn.className = `btn btn-outline ${isExploded ? 'btn-debug' : ''}`;
+        explodeBtn.style.cssText = 'font-size: 0.68rem; padding: 0.2rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.35rem; cursor: pointer;';
+        explodeBtn.innerHTML = isExploded ? '<span>🔼 Collapse Info</span>' : '<span>🔬 Explode Section Info</span>';
+        explodeBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleRowExplode(r.id);
+        };
+        tdTag.appendChild(explodeBtn);
+        tr.appendChild(tdTag);
+
+        // Sequence Rule Badge
+        const tdSeq = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = `tag-badge seq-rule-badge ${isResolved ? 'badge-ready' : 'badge-pending'}`;
+        badge.textContent = r.sequence_name;
+        tdSeq.appendChild(badge);
+        tr.appendChild(tdSeq);
+
+        // Client Translation Template
+        const tdTmpl = document.createElement('td');
+        tdTmpl.style.fontFamily = 'var(--font-mono)';
+        tdTmpl.style.fontSize = '0.8rem';
+        if (r.template_translation === 'N/A') {
+          tdTmpl.innerHTML = '<span style="color: var(--danger); font-weight: 600;">Unrecognized Sequence</span>';
+        } else {
+          let html = r.template_translation;
+          missingKeys.forEach(mk => {
+            const val = fieldValuesById[r.id]?.[mk];
+            if (val) {
+              html = html.split(`{${mk}}`).join(`<span class="token-pill resolved">{${mk}}</span>`);
+            } else {
+              html = html.split(`{${mk}}`).join(`<span class="token-pill">{${mk}}</span>`);
+            }
+          });
+          tdTmpl.innerHTML = html;
+        }
+        tr.appendChild(tdTmpl);
+
+        // Missing Info Inputs
+        const tdMissing = document.createElement('td');
+        if (missingKeys.length === 0) {
+          tdMissing.innerHTML = '<span style="color: var(--text-muted); font-size: 0.75rem;">None required</span>';
+        } else {
+          const group = document.createElement('div');
+          group.className = 'field-input-group';
+          missingKeys.forEach(k => {
+            const item = document.createElement('div');
+            item.className = 'field-input-item';
+            const label = document.createElement('span');
+            label.className = 'field-label';
+            label.textContent = k;
+            label.title = k;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'field-input';
+            input.value = fieldValuesById[r.id]?.[k] || '';
+            input.placeholder = k;
+            input.oninput = (e) => {
+              if (!fieldValuesById[r.id]) fieldValuesById[r.id] = {};
+              fieldValuesById[r.id][k] = e.target.value;
+              updateRowDisplay(tr, r);
+            };
+
+            item.appendChild(label);
+            item.appendChild(input);
+            group.appendChild(item);
+          });
+          tdMissing.appendChild(group);
+        }
+        tr.appendChild(tdMissing);
+
+        // Final Translation
+        const tdFinal = document.createElement('td');
+        tdFinal.className = 'mono-tag final-translation-cell';
+        tdFinal.style.color = '#38bdf8';
+        tdFinal.textContent = currentTrans;
+        tr.appendChild(tdFinal);
+
+        // Status Badge
+        const tdStatus = document.createElement('td');
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'status-cell-badge';
+        if (isResolved) {
+          statusBadge.innerHTML = '<span style="color: var(--success); font-weight: 600;">✓ Ready</span>';
+        } else if (!r.is_identified) {
+          const matchedSecs = r.diagnostics ? r.diagnostics.matched_count : 0;
+          if (matchedSecs > 0) {
+            statusBadge.innerHTML = `<span style="color: var(--warning); font-size: 0.75rem; font-weight: 600;">⚠️ ${matchedSecs}/${r.diagnostics.total_count} detected</span>`;
+          } else {
+            statusBadge.innerHTML = '<span style="color: var(--danger); font-size: 0.75rem;">0 detected</span>';
+          }
+        } else {
+          const missingCount = missingKeys.filter(k => !fieldValuesById[r.id]?.[k]).length;
+          statusBadge.innerHTML = `<span style="color: var(--warning); font-size: 0.75rem;">${missingCount} missing</span>`;
+        }
+        tdStatus.appendChild(statusBadge);
+        tr.appendChild(tdStatus);
+
+        tbody.appendChild(tr);
+
+        // Exploded Diagnostic Row
+        if (isExploded) {
+          const diag = r.diagnostics || {};
+          const trDebug = document.createElement('tr');
+          trDebug.className = 'debug-row';
+          const tdDebug = document.createElement('td');
+          tdDebug.colSpan = 7;
+
+          let sectionsHtml = '';
+          if (diag.sections && diag.sections.length) {
+            diag.sections.forEach((s, sIdx) => {
+              let subSectionsHtml = '';
+              if (s.sub_sections && s.sub_sections.length) {
+                subSectionsHtml = `
+                  <div class="sub-sections-box">
+                    <div class="sub-sections-title">Exploded Compound Elements:</div>
+                    ${s.sub_sections.map(sub => `
+                      <div class="sub-section-row" title="${sub.meaning}">
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                          <span class="sub-section-code">${sub.token}</span>
+                          <span class="sub-section-label">${sub.label}</span>
+                        </div>
+                        <span class="sub-section-meaning">${sub.meaning}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                `;
+              }
+
+              sectionsHtml += `
+                <div class="exploded-chip ${s.is_matched ? 'matched' : 'unmatched'}">
+                  <div class="exploded-chip-header">
+                    <span style="color: var(--text-muted);">Section #${s.index}</span>
+                    <span style="color: ${s.is_matched ? '#34d399' : '#f87171'}; font-weight: 700;">
+                      ${s.is_matched ? '✓ DETECTED' : '✗ UNMATCHED'}
+                    </span>
+                  </div>
+                  <div class="exploded-chip-raw">${s.token}</div>
+                  <div class="exploded-chip-label">${s.is_matched ? s.label : 'unknown'}</div>
+                  ${s.meaning && s.meaning !== 'unknown' ? `<div class="exploded-chip-meaning">${s.meaning}</div>` : ''}
+                  ${subSectionsHtml}
+                  ${s.failure_hint ? `<div class="exploded-chip-error">⚠️ ${s.failure_hint}</div>` : ''}
+                </div>
+              `;
+              if (sIdx < diag.sections.length - 1) {
+                sectionsHtml += `<div class="flow-arrow">→</div>`;
+              }
+            });
+          }
+
+          let candHtml = '';
+          if (diag.closest_candidate) {
+            const c = diag.closest_candidate;
+            let mismatchesHtml = '';
+            if (c.mismatches && c.mismatches.length) {
+              mismatchesHtml = `
+                <div style="margin-top: 0.35rem;">
+                  <span style="color: #f87171; font-weight: 600;">Discrepancies / Expected Tokens:</span>
+                  <ul style="margin-left: 1.25rem; margin-top: 0.2rem; color: #fca5a5;">
+                    ${c.mismatches.map(m => `<li>${m}</li>`).join('')}
+                  </ul>
+                </div>
+              `;
+            }
+            candHtml = `
+              <div class="exploded-diag-box">
+                <div class="diag-syntax-line">
+                  <span class="diag-label">Reconstructed Syntax:</span>
+                  <span class="diag-val" style="color: #fbbf24;">${diag.reconstructed_syntax || 'N/A'}</span>
+                </div>
+                <div class="diag-syntax-line">
+                  <span class="diag-label">Closest Sequence Rule:</span>
+                  <span class="diag-val" style="color: #f26522; font-weight: 600;">${c.sequence_name} (${c.match_percentage}% Match)</span>
+                </div>
+                <div class="diag-syntax-line">
+                  <span class="diag-label">Expected Syntax:</span>
+                  <span class="diag-val" style="color: #94a3b8;">${c.syntax_format}</span>
+                </div>
+                ${mismatchesHtml}
+              </div>
+            `;
+          }
+
+          tdDebug.innerHTML = `
+            <div class="exploded-container">
+              <div class="exploded-header">
+                <div class="exploded-title">
+                  <span>🔬 Exploded Section Analysis:</span>
+                  <span style="color: #f8fafc; font-family: var(--font-mono);">${r.scovan_tag}</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <span class="tag-badge ${diag.matched_count === diag.total_count ? 'badge-comp' : diag.matched_count > 0 ? 'badge-ht' : 'badge-unidentified'}">
+                    ${diag.matched_count} of ${diag.total_count} Sections Detected
+                  </span>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">${diag.status}</span>
+                </div>
+              </div>
+
+              <div style="font-size: 0.8rem; color: #cbd5e1; background: rgba(255,255,255,0.03); padding: 0.4rem 0.75rem; border-radius: 4px; border-left: 3px solid #f59e0b;">
+                ${diag.summary_note}
+              </div>
+
+              <div>
+                <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #94a3b8; margin-bottom: 0.35rem; letter-spacing: 0.05em;">
+                  Token-by-Token Detection Flow
+                </div>
+                <div class="exploded-flow">
+                  ${sectionsHtml}
+                </div>
+              </div>
+
+              ${candHtml}
+            </div>
+          `;
+
+          trDebug.appendChild(tdDebug);
+          tbody.appendChild(trDebug);
+        }
+      });
+
+      document.getElementById('resolved-summary').textContent = `${resolvedCount} of ${filtered.length} tags fully resolved`;
+    }
+
+    function updateRowDisplay(tr, record) {
+      const currentTrans = computeClientTranslation(record);
+      const cellFinal = tr.querySelector('.final-translation-cell');
+      if (cellFinal) cellFinal.textContent = currentTrans;
+
+      const missingKeys = Object.keys(record.missing_fields || {});
+      const hasUnresolved = missingKeys.some(k => !fieldValuesById[record.id]?.[k]);
+      const isResolved = record.is_identified && !hasUnresolved;
+
+      const seqBadge = tr.querySelector('.seq-rule-badge');
+      if (seqBadge) {
+        seqBadge.className = `tag-badge seq-rule-badge ${isResolved ? 'badge-ready' : 'badge-pending'}`;
+      }
+
+      const statusBadge = tr.querySelector('.status-cell-badge');
+      if (statusBadge) {
+        if (isResolved) {
+          statusBadge.innerHTML = '<span style="color: var(--success); font-weight: 600;">✓ Ready</span>';
+        } else {
+          const missingCount = missingKeys.filter(k => !fieldValuesById[record.id]?.[k]).length;
+          statusBadge.innerHTML = `<span style="color: var(--warning); font-size: 0.75rem;">${missingCount} missing</span>`;
+        }
+      }
+
+      let totalResolved = 0;
+      (currentTagsData?.records || []).forEach(rec => {
+        const mKeys = Object.keys(rec.missing_fields || {});
+        if (rec.is_identified && !mKeys.some(k => !fieldValuesById[rec.id]?.[k])) {
+          totalResolved++;
+        }
+      });
+      const resSummary = document.getElementById('resolved-summary');
+      if (resSummary && currentTagsData?.records) {
+        resSummary.textContent = `${totalResolved} of ${currentTagsData.records.length} tags fully resolved`;
+      }
+    }
+
+    function applyBatchFill(scope) {
+      const field = document.getElementById('batch-field-select').value;
+      const value = document.getElementById('batch-value-input').value;
+
+      if (!field) {
+        showToast('Please select a missing field to fill.', 'error');
+        return;
+      }
+      if (!value) {
+        showToast('Please enter a value to apply.', 'error');
+        return;
+      }
+
+      let count = 0;
+      currentTagsData.records.forEach(r => {
+        if (scope === 'active' && activeFilter !== 'all' && r.sequence_key !== activeFilter) {
+          return;
+        }
+        if (r.missing_fields && Object.prototype.hasOwnProperty.call(r.missing_fields, field)) {
+          if (!fieldValuesById[r.id]) fieldValuesById[r.id] = {};
+          fieldValuesById[r.id][field] = value;
+          count++;
+        }
+      });
+
+      renderTable();
+      showToast(`Applied '${field}' = '${value}' to ${count} tag(s)!`);
+    }
+
+    // ==========================================
+    // Conditional / Rule-Based Batch Fill Functions
+    // ==========================================
+    function switchBatchMode(mode) {
+      const bulkBtn = document.getElementById('btn-mode-bulk');
+      const condBtn = document.getElementById('btn-mode-cond');
+      const bulkPane = document.getElementById('pane-batch-bulk');
+      const condPane = document.getElementById('pane-batch-cond');
+      const indicator = document.getElementById('cond-match-indicator');
+
+      if (mode === 'conditional') {
+        if (bulkBtn) bulkBtn.classList.remove('active');
+        if (condBtn) condBtn.classList.add('active');
+        if (bulkPane) bulkPane.style.display = 'none';
+        if (condPane) condPane.style.display = 'flex';
+        if (indicator) indicator.style.display = 'flex';
+        updateConditionalMatches();
+      } else {
+        if (condBtn) condBtn.classList.remove('active');
+        if (bulkBtn) bulkBtn.classList.add('active');
+        if (condPane) condPane.style.display = 'none';
+        if (bulkPane) bulkPane.style.display = 'flex';
+        if (indicator) indicator.style.display = 'none';
+      }
+    }
+
+    function toggleCondClause2(checked) {
+      const row = document.getElementById('cond-clause-2-row');
+      if (row) {
+        row.style.display = checked ? 'flex' : 'none';
+        updateConditionalMatches();
+      }
+    }
+
+    function resetConditionalForm() {
+      const targetVal = document.getElementById('cond-target-val');
+      const val1 = document.getElementById('cond-val-1');
+      const val2 = document.getElementById('cond-val-2');
+      const cb = document.getElementById('cond-and-toggle-cb');
+      const row2 = document.getElementById('cond-clause-2-row');
+
+      if (targetVal) targetVal.value = '';
+      if (val1) val1.value = '';
+      if (val2) val2.value = '';
+      if (cb) cb.checked = false;
+      if (row2) row2.style.display = 'none';
+      updateConditionalMatches();
+    }
+
+    function getRecordAttrValues(r, attrKey) {
+      const vals = [];
+      if (!r || !attrKey) return vals;
+
+      if (attrKey === 'scovan_tag') {
+        if (r.scovan_tag) vals.push(r.scovan_tag);
+        return vals;
+      }
+      if (attrKey === 'sequence_name' || attrKey === 'sequence_key' || attrKey === 'sequence_rule') {
+        if (r.sequence_name) vals.push(r.sequence_name);
+        if (r.sequence_key) vals.push(r.sequence_key);
+        // Also include sequence numbers in case user enters e.g. P0101 into Sequence Rule
+        if (r.scovan_tag) {
+          const m = r.scovan_tag.match(/[A-Za-z]{0,2}\d{3,5}/g);
+          if (m) vals.push(...m);
+        }
+      }
+
+      let cleanKey = attrKey.replace(/^{|}$/g, '').toLowerCase();
+      // Normalize aliases
+      const aliasMap = {
+        'commodity': ['fluid_code', 'commodity'],
+        'fluid_code': ['fluid_code', 'commodity'],
+        'sequence_number': ['scovan_sequence_number', 'sequence_number', 'cnooc_sequence_number'],
+        'scovan_sequence_number': ['scovan_sequence_number', 'sequence_number', 'cnooc_sequence_number'],
+        'line_size': ['line_size', 'valve_size', 'pipe_size'],
+        'valve_size': ['line_size', 'valve_size'],
+        'piping_category': ['piping_category', 'class_code', 'category'],
+        'piping_material': ['piping_material', 'body_material', 'material'],
+        'electrical_component': ['electrical_component', 'tag_type', 'component']
+      };
+
+      const keysToCheck = aliasMap[cleanKey] || [cleanKey];
+
+      // Check universal_sequence & parsed_sections
+      if (r.universal_sequence && r.parsed_sections) {
+        r.universal_sequence.forEach((syntaxItem, idx) => {
+          const itemKey = syntaxItem.replace(/^{|}$/g, '').toLowerCase();
+          if (keysToCheck.includes(itemKey)) {
+            const token = r.parsed_sections[idx];
+            if (token) vals.push(token);
+            const trans = r.universal_translation?.[idx];
+            if (trans && trans !== token) vals.push(trans);
+          }
+        });
+      }
+
+      // Check exploded diagnostics sections & sub-sections (compound items like C1B4, 114CH)
+      if (r.diagnostics && r.diagnostics.sections) {
+        r.diagnostics.sections.forEach(sec => {
+          const secLabel = (sec.label || '').replace(/^{|}$/g, '').toLowerCase();
+          if (keysToCheck.includes(secLabel)) {
+            if (sec.token) vals.push(sec.token);
+            if (sec.meaning && sec.meaning !== 'unknown') vals.push(sec.meaning);
+          }
+          if (sec.sub_sections) {
+            sec.sub_sections.forEach(sub => {
+              const subLabel = (sub.label || '').replace(/^{|}$/g, '').toLowerCase();
+              if (keysToCheck.includes(subLabel)) {
+                if (sub.token) vals.push(sub.token);
+                if (sub.meaning && sub.meaning !== 'unknown') vals.push(sub.meaning);
+              }
+            });
+          }
+        });
+      }
+
+      return vals;
+    }
+
+    function matchClause(r, attrKey, op, targetVal) {
+      if (!targetVal || !targetVal.trim()) return true;
+      const rawTarget = targetVal.trim();
+      const cleanTarget = rawTarget.toLowerCase();
+      // Tolerance for 'po0110' vs 'p0110': replace 'o' with '0'
+      const normTarget = cleanTarget.replace(/o/g, '0');
+
+      const values = getRecordAttrValues(r, attrKey);
+      if (!values || values.length === 0) {
+        return op === 'not_equals';
+      }
+
+      return values.some(val => {
+        if (val === null || val === undefined) return false;
+        const cleanVal = String(val).trim().toLowerCase();
+        const normVal = cleanVal.replace(/o/g, '0');
+
+        switch (op) {
+          case 'equals':
+            if (cleanVal === cleanTarget || normVal === normTarget) return true;
+            if (attrKey.includes('sequence_name') || attrKey.includes('sequence_key') || attrKey.includes('sequence_rule')) {
+              if (cleanVal.includes(cleanTarget) || cleanTarget.includes(cleanVal)) return true;
+            }
+            return false;
+          case 'contains':
+            return cleanVal.includes(cleanTarget) || normVal.includes(normTarget);
+          case 'starts_with':
+            return cleanVal.startsWith(cleanTarget) || normVal.startsWith(normTarget);
+          case 'ends_with':
+            return cleanVal.endsWith(cleanTarget) || normVal.endsWith(normTarget);
+          case 'not_equals':
+            return cleanVal !== cleanTarget && normVal !== normTarget;
+          default:
+            return cleanVal === cleanTarget;
+        }
+      });
+    }
+
+    function updateConditionalMatches() {
+      if (!currentTagsData || !currentTagsData.records) return;
+
+      const targetField = document.getElementById('cond-target-field')?.value || '';
+      const attr1 = document.getElementById('cond-attr-1')?.value || 'fluid_code';
+      const op1 = document.getElementById('cond-op-1')?.value || 'equals';
+      const val1 = document.getElementById('cond-val-1')?.value || '';
+
+      const hasClause2 = document.getElementById('cond-and-toggle-cb')?.checked || false;
+      const attr2 = document.getElementById('cond-attr-2')?.value || 'scovan_sequence_number';
+      const op2 = document.getElementById('cond-op-2')?.value || 'equals';
+      const val2 = document.getElementById('cond-val-2')?.value || '';
+
+      const badge = document.getElementById('cond-match-badge');
+      const preview = document.getElementById('cond-preview-count');
+
+      if (!val1.trim() && (!hasClause2 || !val2.trim())) {
+        if (badge) badge.textContent = 'Enter criteria to match';
+        if (preview) preview.textContent = '0';
+        return;
+      }
+
+      let totalMatch = 0;
+      let targetMatch = 0;
+
+      currentTagsData.records.forEach(r => {
+        const m1 = val1.trim() ? matchClause(r, attr1, op1, val1) : true;
+        const m2 = hasClause2 && val2.trim() ? matchClause(r, attr2, op2, val2) : true;
+        if (m1 && m2) {
+          totalMatch++;
+          if (targetField && r.missing_fields && Object.prototype.hasOwnProperty.call(r.missing_fields, targetField)) {
+            targetMatch++;
+          }
+        }
+      });
+
+      if (badge) {
+        badge.textContent = `${totalMatch} tag(s) match criteria`;
+      }
+      if (preview) {
+        preview.textContent = targetMatch;
+      }
+    }
+
+    function applyConditionalBatchFill() {
+      if (!currentTagsData || !currentTagsData.records) {
+        showToast('No tags loaded.', 'error');
+        return;
+      }
+
+      const targetField = document.getElementById('cond-target-field')?.value;
+      const targetVal = document.getElementById('cond-target-val')?.value;
+
+      if (!targetField) {
+        showToast('Please select a missing field to fill.', 'error');
+        return;
+      }
+      if (!targetVal) {
+        showToast('Please enter a value to assign.', 'error');
+        return;
+      }
+
+      const attr1 = document.getElementById('cond-attr-1')?.value || 'fluid_code';
+      const op1 = document.getElementById('cond-op-1')?.value || 'equals';
+      const val1 = document.getElementById('cond-val-1')?.value || '';
+
+      const hasClause2 = document.getElementById('cond-and-toggle-cb')?.checked || false;
+      const attr2 = document.getElementById('cond-attr-2')?.value || 'scovan_sequence_number';
+      const op2 = document.getElementById('cond-op-2')?.value || 'equals';
+      const val2 = document.getElementById('cond-val-2')?.value || '';
+
+      if (!val1.trim() && (!hasClause2 || !val2.trim())) {
+        showToast('Please specify at least one condition value to filter.', 'error');
+        return;
+      }
+
+      let count = 0;
+      currentTagsData.records.forEach(r => {
+        const m1 = val1.trim() ? matchClause(r, attr1, op1, val1) : true;
+        const m2 = hasClause2 && val2.trim() ? matchClause(r, attr2, op2, val2) : true;
+
+        if (m1 && m2) {
+          if (r.missing_fields && Object.prototype.hasOwnProperty.call(r.missing_fields, targetField)) {
+            if (!fieldValuesById[r.id]) fieldValuesById[r.id] = {};
+            fieldValuesById[r.id][targetField] = targetVal;
+            count++;
+          }
+        }
+      });
+
+      renderTable();
+      updateConditionalMatches();
+      if (count > 0) {
+        showToast(`Applied '${targetField}' = '${targetVal}' to ${count} matching tag(s)!`);
+      } else {
+        showToast(`0 tags matched your criteria. Please verify your condition values.`, 'warning');
+      }
+    }
+
+    function getPreparedExportRecords() {
+      if (!currentTagsData) return [];
+      return currentTagsData.records.map(r => {
+        const fields = fieldValuesById[r.id] || {};
+        const trans = computeClientTranslation(r);
+        return {
+          ...r,
+          client_translation: trans,
+          missing_fields: fields
+        };
+      });
+    }
+
+    async function downloadBreakoutWorkbook() {
+      const records = getPreparedExportRecords();
+      if (!records.length) {
+        showToast('No tags to export.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/export-breakout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records, filename: 'breakout_sequences.xlsx' })
+        });
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'breakout_sequences.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('Breakout Excel downloaded successfully!');
+      } catch (err) {
+        showToast(`Export failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function downloadFinalTranslations() {
+      const records = getPreparedExportRecords();
+      if (!records.length) {
+        showToast('No tags to export.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/export-final', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records, filename: 'final-translation_sequences.xlsx' })
+        });
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'final-translation_sequences.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('Final 2-column Excel downloaded!');
+      } catch (err) {
+        showToast(`Export failed: ${err.message}`, 'error');
+      }
+    }
+
+    function copyTwoColumnToClipboard() {
+      const records = getPreparedExportRecords();
+      if (!records.length) {
+        showToast('No tags to copy.', 'error');
+        return;
+      }
+      const lines = ['Scovan Tag\tFinal Client Translation'];
+      records.forEach(r => {
+        lines.push(`${r.scovan_tag}\t${r.client_translation}`);
+      });
+      const tsv = lines.join('\n');
+      navigator.clipboard.writeText(tsv).then(() => {
+        showToast(`Copied ${records.length} tag mappings to clipboard!`);
+      }).catch(err => {
+        showToast(`Clipboard copy failed: ${err.message}`, 'error');
+      });
+    }
+
+    async function openDirectlyInExcel() {
+      const records = getPreparedExportRecords();
+      if (!records.length) {
+        showToast('No tags to open.', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/open-in-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records, type: 'final' })
+        });
+        const json = await res.json();
+        if (json.status === 'opened') {
+          showToast('Opened spreadsheet in Microsoft Excel!');
+        } else {
+          showToast(`Error: ${json.error}`, 'error');
+        }
+      } catch (err) {
+        showToast(`Failed opening in Excel: ${err.message}`, 'error');
+      }
+    }
+  </script>
+  <footer style="background: #10140b; border-top: 1px solid #232c18; padding: 0.85rem 2rem; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 0.72rem; color: #647556; letter-spacing: 0.05em; margin-top: auto;">
+    <div>PADXCONVERT • TAG OPERATIONS • SCOVAN ENGINEERING</div>
+    <div>PORT 8770 • DUAL TAGGING ENGINE READY</div>
+  </footer>
+</body>
+</html>

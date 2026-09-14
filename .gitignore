@@ -1,7 +1,10 @@
-﻿.runtime/
+.runtime/
 tag-operations-ui/node_modules/
 tag-operations-ui/dist/
 __pycache__/
 *.pyc
 *.bak
 *.attsync.done
+outputs/
+*.log
+

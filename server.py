@@ -156,6 +156,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+        if path in ("/tag-translator", "/translator"):
+            translator_html = ROOT / "web_static" / "index.html"
+            if translator_html.is_file():
+                body = translator_html.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
         if path == "/api/config":
             self._json({
                 "workflows": WORKFLOW_CONFIG,
@@ -328,6 +339,90 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
+
+        if path in ("/api/parse-dump", "/api/parse-upload", "/api/parse-path", "/api/export-breakout", "/api/export-final", "/api/open-in-excel"):
+            try:
+                import base64
+                import tag_translation_engine as tte
+                length = int(self.headers.get("Content-Length", "0"))
+                raw_body = self.rfile.read(length) if length > 0 else b"{}"
+                payload = json.loads(raw_body or b"{}")
+
+                if path == "/api/parse-dump":
+                    text = str(payload.get("text", ""))
+                    tags = tte.parse_raw_tag_text(text)
+                    if not tags:
+                        self._json({"error": "No valid tags could be parsed."}, HTTPStatus.BAD_REQUEST)
+                        return
+                    processed = tte.process_tags(tags)
+                    self._json({"source": "dump", "tags_count": len(tags), "data": processed})
+                    return
+
+                if path == "/api/parse-upload":
+                    filename = str(payload.get("filename", "upload.xlsx"))
+                    b64_content = str(payload.get("content", ""))
+                    file_bytes = base64.b64decode(b64_content)
+                    tags = tte.parse_spreadsheet_bytes(file_bytes, filename)
+                    if not tags:
+                        self._json({"error": f"No tags found in '{filename}'."}, HTTPStatus.BAD_REQUEST)
+                        return
+                    processed = tte.process_tags(tags)
+                    self._json({"source": "upload", "filename": filename, "tags_count": len(tags), "data": processed})
+                    return
+
+                if path == "/api/parse-path":
+                    filepath = str(payload.get("path", "")).strip()
+                    if not filepath or not os.path.exists(filepath):
+                        self._json({"error": f"File does not exist: {filepath}"}, HTTPStatus.BAD_REQUEST)
+                        return
+                    tags = tte.parse_spreadsheet_file(filepath)
+                    processed = tte.process_tags(tags)
+                    self._json({"source": "file", "path": filepath, "tags_count": len(tags), "data": processed})
+                    return
+
+                if path == "/api/export-breakout":
+                    records = payload.get("records", [])
+                    excel_bytes = tte.build_breakout_excel_bytes(records)
+                    filename = str(payload.get("filename", "breakout_sequences.xlsx"))
+                    if not filename.lower().endswith(".xlsx"):
+                        filename += ".xlsx"
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                    self.send_header("Content-Length", str(len(excel_bytes)))
+                    self.end_headers()
+                    self.wfile.write(excel_bytes)
+                    return
+
+                if path == "/api/export-final":
+                    records = payload.get("records", [])
+                    excel_bytes = tte.build_final_2column_excel_bytes(records)
+                    filename = str(payload.get("filename", "final-translation_sequences.xlsx"))
+                    if not filename.lower().endswith(".xlsx"):
+                        filename += ".xlsx"
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                    self.send_header("Content-Length", str(len(excel_bytes)))
+                    self.end_headers()
+                    self.wfile.write(excel_bytes)
+                    return
+
+                if path == "/api/open-in-excel":
+                    import tempfile
+                    records = payload.get("records", [])
+                    file_type = str(payload.get("type", "final"))
+                    excel_bytes = tte.build_breakout_excel_bytes(records) if file_type == "breakout" else tte.build_final_2column_excel_bytes(records)
+                    out_filename = "breakout_sequences.xlsx" if file_type == "breakout" else "final-translation_sequences.xlsx"
+                    out_path = Path(tempfile.gettempdir()) / out_filename
+                    out_path.write_bytes(excel_bytes)
+                    os.startfile(str(out_path))
+                    self._json({"status": "opened", "path": str(out_path)})
+                    return
+
+            except Exception as exc:
+                self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
 
         if path not in {"/api/prepare", "/api/finalize"}:
             self._json({"error": "Not found"}, HTTPStatus.NOT_FOUND)

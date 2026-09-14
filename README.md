@@ -24,3 +24,26 @@ uploaded.
 Shared placeholder rules, workflow metadata, AutoCAD versions, and block rules are
 in `config.py`. The common extraction/mapping code is in `workflow_common.py`, and
 both workflows are orchestrated by `workflow_engine.py`.
+
+---
+
+## Scovan → CNOOC Tag Sequence Translator Web App
+
+A dedicated web app for decomposing Scovan tag sequences, mapping them into CNOOC client syntax, filling in missing client attributes, and generating breakout workbooks.
+
+### Start the Translator
+Double-click `start_tag_translator.bat` (or run `.\.runtime\python\python.exe tag_translator_server.py --port 8770`).
+The web app opens automatically at `http://127.0.0.1:8770`.
+
+### Features
+1. **Spreadsheet Upload**: Drag & drop or upload any `.xlsx`, `.xls`, or `.csv` drawing/line list.
+2. **File Explorer Browse**: Open native Windows File Explorer dialog directly from the browser to select files.
+3. **Copy/Paste Dump**: Paste a list of tags directly from Excel or text.
+4. **Interactive Breakout Table**: View categorized sequence tags with missing fields highlighted in real-time.
+5. **Batch Fill**: Quickly fill required attributes (such as `plant_name` or `circuit_identifier`) across all tags or specific sequence categories.
+6. **Multi-Format Export**:
+   - Download multi-sheet **Breakout Excel** (`breakout_sequences.xlsx`).
+   - Download final 2-column **Translation Excel** (`final-translation_sequences.xlsx`).
+   - Copy 2-column TSV directly to clipboard.
+   - One-click launch in Microsoft Excel.
+
