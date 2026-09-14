@@ -113,6 +113,9 @@ cnooc_sequence_number_mapping = getattr(cnooc_mod, "sequence_number_mapping", {}
 cnooc_line_size_mapping = getattr(cnooc_mod, "line_size_mapping", {})
 cnooc_piping_line_class_mapping = getattr(cnooc_mod, "piping_line_class_mapping", {})
 cnooc_valve_mapping = getattr(cnooc_mod, "valve_mapping", getattr(cnooc_mod, "CNOOC_valve_sequence_mapping", {}))
+cnooc_instrument_identification_mapping = getattr(
+    cnooc_mod, "instrument_identification_mapping", getattr(cnooc_mod, "cnooc_instrument_identification_mapping", {})
+)
 
 # Semantic alias bridging: Scovan token labels <-> CNOOC token labels
 # This satisfies the requirement that data transformations are performed outside the mapping files.
@@ -224,6 +227,35 @@ def _lookup_client_token(syntax_label: str, universal_meaning: str, raw_scovan_v
                 return str(v)
             if raw_upper == str(v).upper().strip().rstrip("#"):
                 return str(k)
+        return None
+
+    if syntax_label.lower() == "{instrument_type}":
+        clean_meaning = str(universal_meaning).upper().strip()
+        clean_raw = str(raw_scovan_val).upper().strip()
+
+        # 1. Match by universal meaning (description)
+        for k, v in mapping_obj.items():
+            if k in ("name", "keep_scovan"):
+                continue
+            clean_k = str(k).upper().strip()
+            clean_v = str(v).replace("()", "").strip().upper()
+            if clean_meaning == clean_k:
+                return clean_v
+            # Handle bracket suffixes in meaning like "HAND SWITCH HIGH" -> "HSH"
+            if "()" in str(v) and clean_meaning.startswith(clean_k):
+                suffix_part = clean_meaning[len(clean_k):].strip()
+                suffix_letters = {"HIGH": "H", "LOW": "L", "HIGH-HIGH": "HH", "LOW-LOW": "LL", "DIFFERENTIAL": "D"}
+                s_code = suffix_letters.get(suffix_part, suffix_part)
+                return f"{clean_v}{s_code}"
+
+        # 2. Match by raw code (if meaning was generic or matched directly)
+        for k, v in mapping_obj.items():
+            if k in ("name", "keep_scovan"):
+                continue
+            clean_v = str(v).replace("()", "").strip().upper()
+            if clean_raw == clean_v or clean_raw == str(v).strip().upper():
+                return clean_v
+
         return None
 
     # For component mappings: keys are descriptions ('PWR Kit'), values are CNOOC codes ('PWR')
@@ -514,6 +546,7 @@ def translate_sequence(
             cnooc_line_size_mapping,
             cnooc_piping_line_class_mapping,
             cnooc_valve_mapping,
+            cnooc_instrument_identification_mapping,
             cnooc_cable_number_mapping,
             cnooc_sequence_number_mapping,
         ]
@@ -594,11 +627,11 @@ def translate_sequence(
 
             if client_code:
                 translated_tokens.append(str(client_code))
-            elif u_label in ("{piping_line_class}", "{CNOOC_valve_sequence}", "{cnooc_valve_sequence}"):
+            elif u_label in ("{piping_line_class}", "{CNOOC_valve_sequence}", "{cnooc_valve_sequence}", "{instrument_type}"):
                 translated_tokens.append(f"{{{field_name}}}")
                 missing_fields[field_name] = ""
             else:
-                val_to_insert = raw_scovan_val if u_label == "{instrument_type}" else str(meaning)
+                val_to_insert = str(meaning)
                 translated_tokens.append(val_to_insert)
 
         # Case 2: Missing from source tag -> check for static hardcoded default

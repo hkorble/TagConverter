@@ -220,6 +220,29 @@ class TestTagTranslatorSuite(unittest.TestCase):
         self.assertEqual(trans, "{CNOOC_valve_sequence}")
         self.assertIn("CNOOC_valve_sequence", missing)
 
+    def test_cnooc_instrument_identification_mappings(self):
+        """Test Scovan instrument tags translate to CNOOC comparable instrument codes via their mappings."""
+        test_cases = [
+            ("FT-1002", "FT-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("PT-2001", "PT-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("TW-3001", "TW-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("PIT-4001", "PIT-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("TIT-5001", "TIT-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("XZI-6001", "XZI-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("XZIC-7001", "XZIC-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("HS-8001", "HS-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("KV-9001", "KV-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("KY-9002", "KY-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("XV-9003", "XV-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("XY-9004", "XY-{cnooc_sequence_number}", ["cnooc_sequence_number"]),
+            ("ESD-9999", "{instrument_type}-{cnooc_sequence_number}", ["instrument_type", "cnooc_sequence_number"]),
+        ]
+        for tag, expected_trans, expected_missing in test_cases:
+            p_sec, u_seq, u_trans, seq_key = tte.decompose_sequence(tag)
+            trans, missing = tte.translate_sequence(seq_key, p_sec, u_seq, u_trans)
+            self.assertEqual(trans, expected_trans, f"Failed translation for {tag}")
+            self.assertEqual(list(missing.keys()), expected_missing, f"Failed missing fields for {tag}")
+
 
 if __name__ == "__main__":
     unittest.main()

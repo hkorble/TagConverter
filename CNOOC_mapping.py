@@ -166,3 +166,38 @@ valve_mapping = {
     "33GL-C3-C5": "TBC",
     "name": "{CNOOC_valve_sequence}"
 }
+
+
+cnooc_instrument_identification_mapping = {
+    # Flow
+    "FLOW ELEMENT": "FE",
+    "FLOW TRANSMITTER": "FT",
+    "FLOW CONTROL VALVE OR REGULATOR": "FV",
+    "FLOW CONVERTER": "FY",
+    "FLOW SOLENOID ACTUATED VALVE": "FY",
+    # Hand
+    "HAND SWITCH": "HS()",
+    # Time
+    "TIME CONTROL VALVE OR REGULATOR": "KV",
+    "TIME CONVERTER": "KY",
+    "TIME SOLENOID ACTUATED VALVE": "KY",
+    # Pressure
+    "PRESSURE TRANSMITTER": "PT",
+    "PRESSURE INDICATING TRANSMITTER": "PIT",
+    "PRESSURE CONTROL VALVE OR REGULATOR": "PV",
+    "PRESSURE CONVERTER": "PY",
+    "PRESSURE SOLENOID ACTUATED VALVE": "PY",
+    # Temperature
+    "THERMOWELL": "TW",
+    "TEMPERATURE INDICATING TRANSMITTER": "TIT",
+    # Position
+    "POSITION SWITCH CLOSED": "XZI",
+    "POSITION SWITCH OPEN": "XZIC",
+    # Unclassified
+    "UNCLASSIFIED CONTROL VALVE OR REGULATOR": "XV",
+    "UNCLASSIFIED CONVERTER": "XY",
+    "UNCLASSIFIED SOLENOID ACTUATED VALVE": "XY",
+    "name": "{instrument_type}"
+}
+
+instrument_identification_mapping = cnooc_instrument_identification_mapping
