@@ -84,6 +84,7 @@ function App() {
   const [dumpStatus, setDumpStatus] = useState("");
 
   const [highestStepReached, setHighestStepReached] = useState<number>(0);
+  const [sessionId, setSessionId] = useState<string>("");
 
   function toggleWorkflow(id: Workflow) {
     setSelectedWorkflows([id]);
@@ -91,11 +92,18 @@ function App() {
 
   function handleDwgPathChange(path: string) {
     setDwgPath(path);
+    setSessionId("");
     setPhase("setup");
     setHighestStepReached(0);
     setLogs([]);
     setMessage("");
     setCompletedOutputs({});
+    setGridRows([]);
+    setMappingPath("");
+    setShowEditor(false);
+    setGridSavedMessage("");
+    setDumpText("");
+    setDumpStatus("");
   }
 
   function applyDumpedTags() {
@@ -307,7 +315,14 @@ function App() {
 
   async function run(action: "prepare" | "finalize") {
     if (action === "prepare") {
+      setSessionId("");
       setHighestStepReached(0);
+      setGridRows([]);
+      setMappingPath("");
+      setShowEditor(false);
+      setGridSavedMessage("");
+      setDumpText("");
+      setDumpStatus("");
     } else if (action === "finalize") {
       setHighestStepReached(3);
     }
@@ -323,6 +338,7 @@ function App() {
           dwg_path: dwgPath,
           mapping_path: derivedMapping,
           output_path: outputPath || derivedOutput,
+          session_id: sessionId,
         }),
       });
       const { run_id, error } = await response.json();
@@ -343,7 +359,23 @@ function App() {
         if (run.status === "complete") {
           window.clearInterval(timer);
           setPhase(action === "prepare" ? "mapping_ready" : "complete");
-          if (run.result?.paths?.mapping) setMappingPath(run.result.paths.mapping);
+          if (action === "prepare") {
+            const sid = run.result?.session_id || run.result?.paths?.session_id || "";
+            if (sid) setSessionId(sid);
+          } else {
+            setSessionId("");
+          }
+          if (run.result?.paths?.mapping) {
+            setMappingPath(run.result.paths.mapping);
+            if (action === "prepare") {
+              fetchMappingData(run.result.paths.mapping);
+            }
+          }
+          if (action === "finalize") {
+            setGridRows([]);
+            setMappingPath("");
+            setShowEditor(false);
+          }
           if (run.result?.outputs) {
             setCompletedOutputs(run.result.outputs);
           } else if (run.result?.paths?.output) {
@@ -431,7 +463,7 @@ function App() {
           const file = e.target.files?.[0];
           if (file) {
             const p = (file as any).path || file.name;
-            setDwgPath(p);
+            handleDwgPathChange(p);
           }
         }}
       />
@@ -525,7 +557,7 @@ function App() {
             <input
               id="dwg-path"
               value={dwgPath}
-              onChange={(e) => setDwgPath(e.target.value)}
+              onChange={(e) => handleDwgPathChange(e.target.value)}
               onClick={(e) => e.stopPropagation()}
               placeholder="Select or enter drawing or zip path (.dwg, .zip)..."
             />

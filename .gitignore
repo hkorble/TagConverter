@@ -7,4 +7,4 @@ __pycache__/
 *.attsync.done
 outputs/
 *.log
-
+scratch_inspect/

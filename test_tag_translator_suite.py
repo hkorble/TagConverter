@@ -243,6 +243,59 @@ class TestTagTranslatorSuite(unittest.TestCase):
             self.assertEqual(trans, expected_trans, f"Failed translation for {tag}")
             self.assertEqual(list(missing.keys()), expected_missing, f"Failed missing fields for {tag}")
 
+    def test_tags_with_adders_and_word_notes(self):
+        """Test that tags with numeric sub-indices (-1, -01, -A) or word notes (TO, FROM, SEE, etc.) slide through and retain adders."""
+        test_cases = [
+            # (raw_tag, expected_key, expected_core, expected_adder, expected_translation)
+            ("114-PE-C1C5-P0101-1", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "-1", "4-PE-{cnooc_sequence_number}-CAPC0-1"),
+            ("114-PE-C1C5-P0101-01", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "-01", "4-PE-{cnooc_sequence_number}-CAPC0-01"),
+            ("114-PE-C1C5-P0101-A", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "-A", "4-PE-{cnooc_sequence_number}-CAPC0-A"),
+            ("114-PE-C1C5-P0101 TO P-101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "TO P-101", "4-PE-{cnooc_sequence_number}-CAPC0 TO P-101"),
+            ("114-PE-C1C5-P0101 - TO HEADER", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "- TO HEADER", "4-PE-{cnooc_sequence_number}-CAPC0 - TO HEADER"),
+            ("114-PE-C1C5-P0101 FROM WELLHEAD", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "FROM WELLHEAD", "4-PE-{cnooc_sequence_number}-CAPC0 FROM WELLHEAD"),
+            ("114-PE-C1C5-P0101 PLEASE SEE DWG-002", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "PLEASE SEE DWG-002", "4-PE-{cnooc_sequence_number}-CAPC0 PLEASE SEE DWG-002"),
+            ("114-PE-C1C5-P0101 (TO PUMP)", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "(TO PUMP)", "4-PE-{cnooc_sequence_number}-CAPC0 (TO PUMP)"),
+            ("114-PE-C1C5-P0101-1 (FROM TEST SEP)", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "-1 (FROM TEST SEP)", "4-PE-{cnooc_sequence_number}-CAPC0-1 (FROM TEST SEP)"),
+            ("114-PE-C1C5-P0101 SEE NOTE 1", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "SEE NOTE 1", "4-PE-{cnooc_sequence_number}-CAPC0 SEE NOTE 1"),
+            ("TO P-101: 114-PE-C1C5-P0101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "TO P-101:", "TO P-101: 4-PE-{cnooc_sequence_number}-CAPC0"),
+            ("TO P-101 114-PE-C1C5-P0101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "TO P-101", "TO P-101 4-PE-{cnooc_sequence_number}-CAPC0"),
+            ("FROM WELLHEAD - 114-PE-C1C5-P0101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "FROM WELLHEAD -", "FROM WELLHEAD - 4-PE-{cnooc_sequence_number}-CAPC0"),
+            ("PLEASE SEE DWG-002: 114-PE-C1C5-P0101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "PLEASE SEE DWG-002:", "PLEASE SEE DWG-002: 4-PE-{cnooc_sequence_number}-CAPC0"),
+            ("(TO PUMP) 114-PE-C1C5-P0101", "piping_line_no_insulation_sequence", "114-PE-C1C5-P0101", "(TO PUMP)", "(TO PUMP) 4-PE-{cnooc_sequence_number}-CAPC0"),
+            ("21GA-C4-C5-1", "valve_sequence", "21GA-C4-C5", "-1", "GA8410-1"),
+            ("FT-1002-1", "instrument_tag_sequence", "FT-1002", "-1", "FT-{cnooc_sequence_number}-1"),
+            # Tag with legitimate trailing cable number should NOT be stripped as adder
+            ("HT-FG-A100-1", "heat_trace_sequence", "HT-FG-A100-1", "", "{plant_name}-ET-FG-{cnooc_sequence_number}-{circuit_identifier}-1"),
+            # Tag with legitimate trailing cable number PLUS an extra adder
+            ("HT-FG-A100-1-1", "heat_trace_sequence", "HT-FG-A100-1", "-1", "{plant_name}-ET-FG-{cnooc_sequence_number}-{circuit_identifier}-1-1"),
+        ]
+
+        for raw_tag, exp_key, exp_core, exp_adder, exp_trans in test_cases:
+            core, pre, suff, p_sec, u_seq, u_trans, seq_key = tte.resolve_tag_with_adders(raw_tag)
+            self.assertEqual(seq_key, exp_key, f"Failed sequence key for {raw_tag}")
+            self.assertEqual(core, exp_core, f"Failed core tag for {raw_tag}")
+            adder_str = (pre + suff).strip()
+            self.assertEqual(adder_str, exp_adder.strip(), f"Failed adder for {raw_tag}")
+
+            # Test decompose_sequence directly works too
+            _, _, _, d_key = tte.decompose_sequence(raw_tag)
+            self.assertEqual(d_key, exp_key, f"Direct decompose failed for {raw_tag}")
+
+            # Test translation preserves the adder
+            trans, _ = tte.translate_sequence(seq_key, p_sec, u_seq, u_trans, prefix_adder=pre, suffix_adder=suff)
+            self.assertEqual(trans, exp_trans, f"Failed translation for {raw_tag}")
+
+        # Test process_tags batch integration
+        all_tags = [tc[0] for tc in test_cases]
+        res = tte.process_tags(all_tags)
+        self.assertEqual(res["total_count"], len(all_tags))
+        for r, tc in zip(res["records"], test_cases):
+            self.assertTrue(r["is_identified"], f"Expected identified for {tc[0]}")
+            self.assertEqual(r["sequence_key"], tc[1])
+            self.assertEqual(r["client_translation"], tc[4])
+            if tc[3]:
+                self.assertTrue(r["has_adder"], f"Expected has_adder True for {tc[0]}")
+
 
 if __name__ == "__main__":
     unittest.main()

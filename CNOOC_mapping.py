@@ -176,7 +176,7 @@ cnooc_instrument_identification_mapping = {
     "FLOW CONVERTER": "FY",
     "FLOW SOLENOID ACTUATED VALVE": "FY",
     # Hand
-    "HAND SWITCH": "HS()",
+    "HAND SWITCH": "HS",
     # Time
     "TIME CONTROL VALVE OR REGULATOR": "KV",
     "TIME CONVERTER": "KY",

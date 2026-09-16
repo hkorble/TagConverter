@@ -351,14 +351,26 @@ def expand_tag_internal_dashes(tag: str) -> List[str]:
 
 
 
-def decompose_sequence(
+WORD_ADDER_PATTERNS = [
+    r'(\s*[(][^)]*[)]\s*)$',
+    r'(\s*[-–—:]?\s*(?:(?:PLEASE\s+)?SEE\b|TO\b|FROM\b|NOTE\b|REF\b|CONT\b|TYP\b).*)$',
+]
+
+PREFIX_ADDER_PATTERNS = [
+    r'^([(][^)]*[)]\s*[-–—:]?\s*)',
+    r'^((?:(?:PLEASE\s+)?SEE\b|TO\b|FROM\b|NOTE\b|REF\b|CONT\b|TYP\b).*?(?::\s*|\s+[-–—]\s*))',
+]
+
+PREFIX_WORD_RE = re.compile(r'^(?:(?:PLEASE\s+)?SEE|TO|FROM|NOTE|REF|CONT|TYP)\b', re.IGNORECASE)
+
+
+def _decompose_sequence_direct(
     sequence_string: str,
     mapping_sources: Optional[List[Dict[str, Any]]] = None,
     sequences_mapping: Dict[str, Any] = scovan_sequences,
 ) -> Tuple[List[str], List[str], List[str], Optional[str]]:
     """
-    Splits a tag string by '-' and matches individual tokens separated by dashes,
-    relying on internally dashed syntax formats ({thing}-{thing2}).
+    Directly splits a tag string by '-' and matches individual tokens against Scovan mappings.
     """
     if mapping_sources is None:
         mapping_sources = [
@@ -527,6 +539,117 @@ def decompose_sequence(
     return parsed_sections, universal_sequence, universal_translation, matched_sequence_key
 
 
+def resolve_tag_with_adders(
+    raw_tag: str,
+    mapping_sources: Optional[List[Dict[str, Any]]] = None,
+    sequences_mapping: Dict[str, Any] = scovan_sequences,
+) -> Tuple[str, str, str, List[str], List[str], List[str], Optional[str]]:
+    """
+    Identifies if a tag matches a known Scovan sequence directly or via adders
+    (such as appended '-1', '-01', '-A', or prefix/suffix words like 'TO P-101', 'FROM WELLHEAD',
+    'PLEASE SEE DWG-002', '(TO PUMP)', '(TYP)', etc.).
+
+    Returns:
+        (core_tag, prefix_adder, suffix_adder, parsed_sections, universal_sequence, universal_translation, matched_sequence_key)
+    """
+    clean = raw_tag.strip().strip('"\'')
+    if not clean:
+        return clean, "", "", [], [], [], None
+
+    # 1. Direct match on clean tag
+    p, u, tr, k = _decompose_sequence_direct(clean, mapping_sources, sequences_mapping)
+    if k is not None:
+        return clean, "", "", p, u, tr, k
+
+    # 2. Extract prefix or suffix word annotations
+    prefix_adder = ""
+    suffix_adder = ""
+    work_tag = clean
+
+    for pat in PREFIX_ADDER_PATTERNS:
+        m = re.match(pat, work_tag, re.IGNORECASE)
+        if m:
+            prefix_adder = m.group(1)
+            work_tag = work_tag[m.end():].strip()
+            break
+
+    while True:
+        matched_suff = False
+        for pat in WORD_ADDER_PATTERNS:
+            m = re.search(pat, work_tag, re.IGNORECASE)
+            if m and m.start() > 0:
+                suffix_adder = m.group(1) + suffix_adder
+                work_tag = work_tag[:m.start()].strip()
+                matched_suff = True
+                break
+        if not matched_suff:
+            break
+
+    # Strip leftover trailing / leading separators
+    work_tag = re.sub(r"[\s:\-–—]+$", "", work_tag).strip()
+    work_tag = re.sub(r"^[\s:\-–—]+", "", work_tag).strip()
+
+    # If work_tag starts with a word adder keyword without delimiter (e.g. 'TO P-101 114-PE-...')
+    if PREFIX_WORD_RE.match(work_tag):
+        words = work_tag.split()
+        if len(words) >= 2:
+            for cut in range(1, len(words)):
+                pre_cand = " ".join(words[:cut])
+                post_cand = " ".join(words[cut:])
+                p_c, u_c, tr_c, k_c = _decompose_sequence_direct(post_cand, mapping_sources, sequences_mapping)
+                if k_c is not None:
+                    prefix_adder = prefix_adder + pre_cand + " "
+                    work_tag = post_cand
+                    return work_tag, prefix_adder, suffix_adder, p_c, u_c, tr_c, k_c
+                dash_parts = [part for part in post_cand.split("-") if part.strip()]
+                for dcut in range(len(dash_parts) - 1, 0, -1):
+                    sub_cand = "-".join(dash_parts[:dcut])
+                    sub_trail = "-" + "-".join(dash_parts[dcut:])
+                    p_c, u_c, tr_c, k_c = _decompose_sequence_direct(sub_cand, mapping_sources, sequences_mapping)
+                    if k_c is not None:
+                        prefix_adder = prefix_adder + pre_cand + " "
+                        return sub_cand, prefix_adder, sub_trail + suffix_adder, p_c, u_c, tr_c, k_c
+
+    # Check if work_tag matches directly after word extraction
+    p, u, tr, k = _decompose_sequence_direct(work_tag, mapping_sources, sequences_mapping)
+    if k is not None:
+        return work_tag, prefix_adder, suffix_adder, p, u, tr, k
+
+    # 3. Check for dash-separated trailing adders (e.g. -1, -01, -A, etc.)
+    dash_parts = [part for part in work_tag.split("-") if part.strip()]
+    for cut in range(len(dash_parts) - 1, 0, -1):
+        cand = "-".join(dash_parts[:cut])
+        trail = "-" + "-".join(dash_parts[cut:])
+        p_c, u_c, tr_c, k_c = _decompose_sequence_direct(cand, mapping_sources, sequences_mapping)
+        if k_c is not None:
+            full_suffix = trail + suffix_adder
+            return cand, prefix_adder, full_suffix, p_c, u_c, tr_c, k_c
+
+    # If still unmatched, return clean tag with direct decomposition
+    p, u, tr, k = _decompose_sequence_direct(clean, mapping_sources, sequences_mapping)
+    return clean, "", "", p, u, tr, None
+
+
+def decompose_sequence(
+    sequence_string: str,
+    mapping_sources: Optional[List[Dict[str, Any]]] = None,
+    sequences_mapping: Dict[str, Any] = scovan_sequences,
+    allow_adders: bool = True,
+) -> Tuple[List[str], List[str], List[str], Optional[str]]:
+    """
+    Splits a tag string by '-' and matches individual tokens separated by dashes,
+    relying on internally dashed syntax formats ({thing}-{thing2}).
+    Supports recognizing tags with adders (such as '-1' or word notes) when allow_adders=True.
+    """
+    if allow_adders:
+        core_tag, pre, suff, p_sec, u_seq, u_trans, seq_key = resolve_tag_with_adders(
+            sequence_string, mapping_sources, sequences_mapping
+        )
+        return p_sec, u_seq, u_trans, seq_key
+
+    return _decompose_sequence_direct(sequence_string, mapping_sources, sequences_mapping)
+
+
 def translate_sequence(
     sequence_key: str,
     parsed_sections: List[str],
@@ -534,6 +657,8 @@ def translate_sequence(
     universal_translation: List[str],
     client_sequences: Dict[str, Any] = cnooc_sequences,
     client_mappings: Optional[List[Dict[str, Any]]] = None,
+    prefix_adder: str = "",
+    suffix_adder: str = "",
 ) -> Tuple[str, Dict[str, str]]:
     """
     Translates a decomposed Scovan sequence into the client (CNOOC) syntax.
@@ -648,7 +773,8 @@ def translate_sequence(
                 translated_tokens.append(f"{{{field_name}}}")
                 missing_fields[field_name] = ""
 
-    final_client_sequence = "-".join(translated_tokens)
+    core_client_sequence = "-".join(translated_tokens)
+    final_client_sequence = f"{prefix_adder}{core_client_sequence}{suffix_adder}"
     return final_client_sequence, missing_fields
 
 
@@ -859,7 +985,10 @@ def process_tags(tags: List[str]) -> Dict[str, Any]:
     all_missing_field_names: set[str] = set()
 
     for idx, tag in enumerate(tags):
-        p_sec, u_seq, u_trans, seq_key = decompose_sequence(tag)
+        core_tag, prefix_adder, suffix_adder, p_sec, u_seq, u_trans, seq_key = resolve_tag_with_adders(tag)
+
+        has_adder = bool(prefix_adder or suffix_adder)
+        raw_adder = (prefix_adder + suffix_adder).strip()
 
         if not seq_key:
             seq_category = "unidentified_sequences"
@@ -871,19 +1000,32 @@ def process_tags(tags: List[str]) -> Dict[str, Any]:
             seq_meta = scovan_sequences.get(seq_key, {})
             category_title = seq_meta.get("name", seq_key.replace("_", " ").title())
             final_translation, missing_info = translate_sequence(
-                seq_key, p_sec, u_seq, u_trans, cnooc_sequences
+                seq_key,
+                p_sec,
+                u_seq,
+                u_trans,
+                cnooc_sequences,
+                prefix_adder=prefix_adder,
+                suffix_adder=suffix_adder,
             )
 
         category_counts[seq_category] = category_counts.get(seq_category, 0) + 1
         for field in missing_info.keys():
             all_missing_field_names.add(field)
 
-        # Generate exploded debug diagnostics
-        diagnostics = analyze_sequence_detection(p_sec, u_seq, u_trans, seq_key, tag)
+        # Generate exploded debug diagnostics on core_tag
+        diagnostics = analyze_sequence_detection(p_sec, u_seq, u_trans, seq_key, core_tag)
+        if has_adder and seq_key:
+            diagnostics["summary_note"] += f" (Adder detected & preserved: '{raw_adder}')"
 
         records.append({
             "id": idx + 1,
             "scovan_tag": tag,
+            "core_tag": core_tag,
+            "has_adder": has_adder,
+            "adder": raw_adder,
+            "prefix_adder": prefix_adder,
+            "suffix_adder": suffix_adder,
             "sequence_key": seq_category,
             "sequence_name": category_title,
             "parsed_sections": p_sec,

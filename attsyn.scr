@@ -3,6 +3,7 @@
 (command "_.attsync" "_Name" "Dyn_Discrete Instr")
 (command "_.attsync" "_Name" "dyn_instr plc")
 (command "_.attsync" "_Name" "dyn_meter")
+(command "_.attsync" "_Name" "G-CableID")
 REGENALL
 QSAVE
 QUIT

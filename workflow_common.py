@@ -43,7 +43,9 @@ def unpack_tag(raw_value: object, block_name: str) -> str:
         try:
             values = ast.literal_eval(text)
             if isinstance(values, dict):
-                selected = [str(values[tag]) for tag in target_attributes(block_name) if values.get(tag) not in (None, "")]
+                upper_dict = {str(k).upper(): v for k, v in values.items()}
+                target_tags = target_attributes(block_name)
+                selected = [str(upper_dict[str(tag).upper()]) for tag in target_tags if upper_dict.get(str(tag).upper()) not in (None, "")]
                 if selected:
                     return "-".join(selected)
                 
@@ -52,8 +54,10 @@ def unpack_tag(raw_value: object, block_name: str) -> str:
                 for bname, rule in BLOCK_RULES_LEGEND.items():
                     attrs = rule.get("target_attributes", [rule.get("target_attribute")])
                     for attr in attrs:
-                        if attr and values.get(attr) not in (None, ""):
-                            return str(values[attr])
+                        if attr:
+                            val = upper_dict.get(str(attr).upper())
+                            if val not in (None, ""):
+                                return str(val)
         except (SyntaxError, ValueError):
             pass
     return text
@@ -61,18 +65,38 @@ def unpack_tag(raw_value: object, block_name: str) -> str:
 
 def format_mapping(mapping: object, original: object, block_name: str) -> str:
     text = str(mapping).strip()
-    tags = target_attributes(block_name)
-    if len(tags) == 1:
-        return text
-    values: dict[str, object] = {}
     original_text = str(original or "")
+
+    values: dict[str, object] = {}
+    is_dict = False
     if original_text.startswith("{") and original_text.endswith("}"):
         try:
             parsed = ast.literal_eval(original_text)
             if isinstance(parsed, dict):
-                values = parsed
+                values = dict(parsed)
+                is_dict = True
         except (SyntaxError, ValueError):
             pass
+
+    if not is_dict:
+        return text
+
+    # Identify target attribute schema based on existing keys in dictionary or block definition
+    if any(k in values for k in ("TOP", "BTM")):
+        tags = ["TOP", "BTM"]
+        values.pop("TXT1", None)
+        values.pop("TXT2", None)
+    elif any(k in values for k in ("TXT1", "TXT2")):
+        tags = ["TXT1", "TXT2"]
+        values.pop("TOP", None)
+        values.pop("BTM", None)
+    else:
+        tags = target_attributes(block_name)
+
+    if len(tags) == 1:
+        values[tags[0]] = text
+        return str(values)
+
     parts = [part.strip() for part in text.split("-")]
     for index, tag in enumerate(tags):
         values[tag] = parts[index] if index < len(parts) else values.get(tag, "")
@@ -99,36 +123,46 @@ def write_mapping_sheet(connections_path: Path, mapping_path: Path, workflow: st
         pd.DataFrame(rows).to_excel(writer, index=False, sheet_name="Mapping")
         worksheet = writer.sheets["Mapping"]
         worksheet.column_dimensions["A"].width = 16
-        worksheet.column_dimensions["B"].width = 35
-        worksheet.column_dimensions["C"].width = 35
-        worksheet.column_dimensions["A"].hidden = True
+        worksheet.column_dimensions["B"].width = 30
+        worksheet.column_dimensions["C"].width = 30
     return len(rows)
 
 
-def apply_mapping_sheet(registry_path: Path, mapping_path: Path, workflow: str) -> int:
+def apply_mapping_sheet(mapping_path: Path, registry_path: Path, workflow: str) -> int:
     mappings = pd.read_excel(mapping_path, sheet_name="Mapping")
-    required = {"Connection Row", "Client Tag Mapping"}
-    if missing := required.difference(mappings.columns):
-        raise ValueError(f"Mapping sheet is missing column(s): {', '.join(sorted(missing))}")
     blank = mappings["Client Tag Mapping"].isna() | (mappings["Client Tag Mapping"].astype(str).str.strip() == "")
     if blank.any():
         raise ValueError(f"Fill in all client mappings first ({int(blank.sum())} blank row(s)).")
 
     connections = pd.read_excel(registry_path, sheet_name="Connected Elements")
     master = pd.read_excel(registry_path, sheet_name="Master Registry")
+
+    master_lookup = {}
+    if not master.empty and "Unique ID" in master.columns:
+        for _, mrow in master.iterrows():
+            uid = str(mrow.get("Unique ID", ""))
+            if uid:
+                master_lookup[uid] = str(mrow.get("Subtype / Block Name", ""))
+
     for _, mapping_row in mappings.iterrows():
         index = int(mapping_row["Connection Row"])
         if index not in connections.index:
             continue
         row = connections.loc[index]
         block = str(row.get("Asset Subtype/Block", ""))
+        p_block = str(row.get("Placeholder Subtype/Block", ""))
+        if not p_block:
+            p_id = str(row.get("Placeholder ID", ""))
+            p_block = master_lookup.get(p_id, "")
+
         value = str(mapping_row["Client Tag Mapping"]).strip()
         if workflow == "client_translation":
             formatted = format_mapping(value, row.get("Asset Content/Value", ""), block)
             connections.at[index, "Placeholder Content"] = formatted
             connections.at[index, "Asset Content/Value"] = formatted
         else:
-            formatted = format_mapping(value, row.get("Placeholder Content", ""), block)
+            target_block = p_block or block
+            formatted = format_mapping(value, row.get("Placeholder Content", ""), target_block)
             connections.at[index, "Placeholder Content"] = formatted
 
     with pd.ExcelWriter(registry_path, engine="openpyxl") as writer:
@@ -246,6 +280,8 @@ def clean_workspace_artifacts(base_dir: Path, preserve_mapping: bool = False, pr
         files_to_remove.append(base_dir / "Master_Registry.xlsx")
     if not preserve_mapping:
         files_to_remove.append(base_dir / "Client_Mapping_Sheet.xlsx")
+        files_to_remove.append(base_dir / ".runtime" / "current_zip_session.json")
+        files_to_remove.append(base_dir / ".runtime" / "current_session_id.txt")
 
     for file_path in files_to_remove:
         try:
@@ -254,7 +290,7 @@ def clean_workspace_artifacts(base_dir: Path, preserve_mapping: bool = False, pr
         except Exception:
             pass
 
-    for pattern in ("*.bak", "*.attsync.done"):
+    for pattern in ("*.bak", "*.attsync.done", "*.dwl", "*.dwl2"):
         for p in base_dir.glob(pattern):
             try:
                 if p.is_file():

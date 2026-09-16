@@ -49,12 +49,19 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
         if entity.dxftype() == 'TEXT':
             content = _clean_text(entity.dxf.text)
             insert = entity.dxf.insert
+        elif entity.dxftype() == 'MULTILEADER':
+            content = _clean_text(entity.context.mtext.default_content if (entity.context and entity.context.mtext) else "")
+            insert = entity.context.base_point if (entity.context and entity.context.base_point) else (0.0, 0.0, 0.0)
         else:
             content = _clean_text(entity.text)
             insert = entity.dxf.insert
 
-        x, y = float(insert.x), float(insert.y)
-        z = float(insert.z) if hasattr(insert, 'z') else 0.0
+        if hasattr(insert, 'x'):
+            x, y = float(insert.x), float(insert.y)
+            z = float(insert.z) if hasattr(insert, 'z') else 0.0
+        else:
+            x, y = float(insert[0]), float(insert[1])
+            z = float(insert[2]) if len(insert) > 2 else 0.0
         
         raw_signature = f'TEXT|{content}|{round(x, 3)}|{round(y, 3)}'
         element_id = str(uuid.uuid5(uuid.NAMESPACE_OID, raw_signature))
@@ -92,6 +99,16 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
                 if attr.dxf.tag.upper() in attribute_to_block:
                     is_allowed = True
                     break
+
+        if not is_allowed:
+            blk_def = doc.blocks.get(eff_name) or doc.blocks.get(raw_name)
+            if blk_def:
+                for be in blk_def:
+                    if be.dxftype() in ('TEXT', 'MTEXT'):
+                        t = _clean_text(be.dxf.text if be.dxftype() == 'TEXT' else be.text)
+                        if t and not any(coord in t.upper() for coord in ('EL.', 'N.', 'E.', 'W.')):
+                            is_allowed = True
+                            break
 
         if is_allowed:
             insert_entities.append(e)
@@ -146,18 +163,32 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
 
         attr_summary = {}
         if insert.has_attrib:
+            rule = BLOCK_RULES_LEGEND.get(block_name, {})
+            target_attrs = [str(a).upper() for a in rule.get('target_attributes', [rule.get('target_attribute')]) if a]
             for attr in insert.attribs:
                 flags = attr.dxf.get('flags', 0)
                 is_invisible = bool(flags & 1)
-                if not is_invisible:
-                    tag = attr.dxf.tag.upper()
-                    val = _clean_text(attr.dxf.text)
-                    attr_summary[tag] = val
+                tag = attr.dxf.tag.upper()
+                val = _clean_text(attr.dxf.text)
+                if not is_invisible or tag in target_attrs or tag in attribute_to_block:
+                    if val:
+                        attr_summary[tag] = val
+
+        # Check if block definition contains embedded visible line tag TEXT (e.g. 219-PG-C1C5-X050)
+        in_block_text = None
+        blk_def = doc.blocks.get(eff_name) or doc.blocks.get(raw_name)
+        if blk_def:
+            for be in blk_def:
+                if be.dxftype() in ('TEXT', 'MTEXT'):
+                    t = _clean_text(be.dxf.text if be.dxftype() == 'TEXT' else be.text)
+                    if t and not any(coord in t.upper() for coord in ('EL.', 'N.', 'E.', 'W.')):
+                        in_block_text = t
+                        break
 
         raw_signature = f'BLOCK|{block_name}|{round(x, 3)}|{round(y, 3)}'
         element_id = str(uuid.uuid5(uuid.NAMESPACE_OID, raw_signature))
 
-        content_val = str(attr_summary) if attr_summary else 'N/A'
+        content_val = in_block_text if in_block_text else (str(attr_summary) if attr_summary else 'N/A')
         record = {
             'Unique ID': element_id,
             'Entity Category': 'Block Reference',
@@ -217,6 +248,7 @@ def generate_spatial_registry(dwg_path: str, output_excel_path: str, csv_path: s
                         'Detection Technique': 'CSV_GROUP_PAIR',
                         'Placeholder ID': p_item['id'],
                         'Placeholder Layer': p_item['record']['Layer'],
+                        'Placeholder Subtype/Block': p_item['record']['Subtype / Block Name'],
                         'Placeholder Content': p_item['record']['Content / Value'],
                         'Placeholder X': p_item['x'],
                         'Placeholder Y': p_item['y'],

@@ -1,4 +1,4 @@
-(defun c:ExportTagData ( / outputDir fileLarge fileAll dict groupName groupData subEnt entData handle layer pt content item pair res xStr yStr memberCount groupList membersList gItem )
+(defun c:ExportTagData ( / outputDir fileAll fileLarge dict groupName pair res groupData membersList sub entData memberCount subEnt handle layer pt content entType xStr yStr gItem aEnt aData aTag bname blk blkSub blkSubData blkTxt )
   ;; Open both files simultaneously
   ;; The frontend supplies its selected workspace; direct AutoCAD runs fall back
   ;; to the active drawing directory.
@@ -60,7 +60,60 @@
                        (setq handle (cdr (assoc 5 entData)))
                        (setq layer (cdr (assoc 8 entData)))
                        (setq pt (cdr (assoc 10 entData)))
-                       (setq content (cdr (assoc 1 entData)))
+                       (setq entType (cdr (assoc 0 entData)))
+                       (setq content nil)
+                       
+                       (cond
+                         ((= entType "MULTILEADER")
+                          (setq content (cdr (assoc 304 entData)))
+                         )
+                         ((= entType "INSERT")
+                          ;; First check if the block definition contains embedded TEXT (e.g. line tag like 219-PG-C1C5-X050)
+                          (setq bname (cdr (assoc 2 entData)))
+                          (if bname
+                            (progn
+                              (setq blk (tblobjname "BLOCK" bname))
+                              (if blk
+                                (progn
+                                  (setq blkSub blk)
+                                  (while (setq blkSub (entnext blkSub))
+                                    (setq blkSubData (entget blkSub))
+                                    (if (or (= (cdr (assoc 0 blkSubData)) "TEXT") (= (cdr (assoc 0 blkSubData)) "MTEXT"))
+                                      (progn
+                                        (setq blkTxt (cdr (assoc 1 blkSubData)))
+                                        (if (and blkTxt (/= blkTxt "") (not (wcmatch (strcase blkTxt) "*EL.*,*N.*,*E.*,*W.*")))
+                                          (setq content blkTxt)
+                                        )
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                          ;; If no in-block text was found, fall back to checking attributes
+                          (if (or (not content) (= content ""))
+                            (if (= (cdr (assoc 66 entData)) 1)
+                              (progn
+                                (setq aEnt (entnext subEnt))
+                                (while (and aEnt (/= (cdr (assoc 0 (entget aEnt))) "SEQEND"))
+                                  (setq aData (entget aEnt))
+                                  (setq aTag (vl-string-trim " " (strcase (cdr (assoc 2 aData)))))
+                                  (if (or (= aTag "VLV_TAG") (= aTag "VLV_NUM") (= aTag "TAG") (= aTag "PIPE REF") (= aTag "PIPE_REF") (= aTag "PIPEREF")
+                                          (and (wcmatch (strcase bname) "*CABLE*") (= aTag "TAG1"))
+                                      )
+                                    (setq content (cdr (assoc 1 aData)))
+                                  )
+                                  (setq aEnt (entnext aEnt))
+                                )
+                              )
+                            )
+                          )
+                         )
+                         (t
+                          (setq content (cdr (assoc 1 entData)))
+                         )
+                       )
                        
                        (if (not content) (setq content ""))
                        (if (not handle) (setq handle ""))

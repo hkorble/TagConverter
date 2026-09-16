@@ -30,21 +30,28 @@ from workflow_common import (
 Log = Callable[[str], None]
 
 
+def is_derivative_path(path: Path) -> bool:
+    ignored_keywords = (
+        ".runtime", "outputs", ".git", "node_modules",
+        "zip_workdir", "workspaces", "extracted", "out_staging", "wrapped_zips",
+        "dualtagged", "translated", "deliverable", "_updated",
+    )
+    for part in path.parts:
+        low = part.lower()
+        if any(k in low for k in ignored_keywords):
+            return True
+    return False
+
+
 def resolve_drawing_path(raw_path: str) -> Path:
     """Locate drawing or zip package independently of exact file path or browser upload name."""
     if not raw_path.strip():
         return Path(raw_path)
     p = Path(raw_path).expanduser()
 
-    ignored_parts = {
-        ".runtime", "outputs", ".git", "node_modules",
-        "zip_workdir", "workspaces", "extracted", "out_staging", "wrapped_zips"
-    }
-
-    # If already a valid file, make sure it is NOT pointing inside a temporary/output runtime folder
-    if p.is_file():
-        if not any(part.lower() in ignored_parts for part in p.parts):
-            return p.resolve()
+    # If already a valid file, make sure it is NOT pointing inside an output or derivative folder
+    if p.is_file() and not is_derivative_path(p):
+        return p.resolve()
 
     filename = p.name
     candidates: list[Path] = []
@@ -53,18 +60,19 @@ def resolve_drawing_path(raw_path: str) -> Path:
     project_root = Path(__file__).resolve().parent
     desktop_dir = Path.home() / "Desktop"
 
-    # Search user's primary source directories: Downloads and Desktop, then project root (excluding temp dirs)
+    # Search user's primary source directories: Downloads and Desktop, then project root (excluding temp/derivative dirs)
     for root_dir in (downloads_dir, desktop_dir, project_root):
         if root_dir.is_dir():
             for f in root_dir.rglob(filename):
-                if f.is_file() and not any(part.lower() in ignored_parts for part in f.parts):
+                if f.is_file() and not is_derivative_path(f):
                     candidates.append(f)
 
     if candidates:
         def sort_priority(f: Path):
+            has_native = any(part.upper() == "NATIVE" for part in f.parts)
             is_download = str(downloads_dir).lower() in str(f).lower()
             is_desktop = str(desktop_dir).lower() in str(f).lower()
-            return (1 if (is_download or is_desktop) else 0, f.stat().st_mtime)
+            return (1 if has_native else 0, 1 if (is_download or is_desktop) else 0, -f.stat().st_mtime)
 
         candidates.sort(key=sort_priority, reverse=True)
         return candidates[0].resolve()
@@ -88,6 +96,7 @@ class WorkflowPaths:
     original_dwg: Path | None = None
     target_dwg_output: Path | None = None
     target_pdf_output: Path | None = None
+    session_id: str | None = None
 
     @classmethod
     def from_payload(cls, payload: dict[str, object]) -> "WorkflowPaths":
@@ -117,6 +126,35 @@ class WorkflowPaths:
             else:
                 target_out = (outputs_dir / raw_output).resolve()
 
+        action_name = str(payload.get("action", "")).lower()
+        explicit_session_id = str(payload.get("session_id") or "").strip()
+        curr_ptr = base / ".runtime" / "current_session_id.txt"
+        curr_session_file = base / ".runtime" / "current_zip_session.json"
+
+        # Determine unique execution session_id
+        session_id = None
+        if action_name == "finalize":
+            if explicit_session_id:
+                session_id = explicit_session_id
+            elif curr_ptr.is_file():
+                try:
+                    session_id = curr_ptr.read_text("utf-8").strip()
+                except Exception:
+                    pass
+            elif curr_session_file.is_file():
+                try:
+                    with open(curr_session_file, "r", encoding="utf-8") as f:
+                        session_id = json.load(f).get("session_id")
+                except Exception:
+                    pass
+
+        # Every prepare run unconditionally receives a fresh, unique session ID
+        if not session_id or action_name == "prepare":
+            session_id = uuid.uuid4().hex[:12]
+
+        session_dir = (base / ".runtime" / "sessions" / session_id).resolve()
+        session_dir.mkdir(parents=True, exist_ok=True)
+
         is_wrapped = False
         orig_dwg = None
         target_dwg_out = None
@@ -128,41 +166,29 @@ class WorkflowPaths:
             target_dwg_out = target_out if target_out.suffix.lower() == ".dwg" else target_out.with_suffix(".dwg")
             target_pdf_out = target_dwg_out.with_suffix(".pdf")
 
-            action_name = str(payload.get("action", "")).lower()
-            curr_session_file = base / ".runtime" / "current_zip_session.json"
-            reused_zip = None
-
-            # Only reuse an existing wrapped zip during FINALIZE phase for the exact same source DWG
-            if action_name == "finalize" and curr_session_file.is_file():
-                try:
-                    with open(curr_session_file, "r", encoding="utf-8") as f:
-                        sinfo = json.load(f)
-                    if sinfo.get("original_dwg") == str(orig_dwg) and sinfo.get("wrapped_zip"):
-                        cand = Path(sinfo["wrapped_zip"])
-                        if cand.is_file():
-                            reused_zip = cand
-                except Exception:
-                    pass
-
-            if reused_zip:
-                dwg = reused_zip
-            else:
-                wrapped_dir = base / ".runtime" / "wrapped_zips"
-                wrapped_dir.mkdir(parents=True, exist_ok=True)
-                wrapped_zip_path = (wrapped_dir / f"{clean_stem}_{uuid.uuid4().hex[:6]}.zip").resolve()
+            # Store the wrapped zip inside this session's isolated workspace
+            wrapped_zip_path = (session_dir / f"{clean_stem}.zip").resolve()
+            if not wrapped_zip_path.is_file() or action_name == "prepare":
                 with zipfile.ZipFile(wrapped_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                     zf.write(orig_dwg, f"NATIVE/{orig_dwg.name}")
-                dwg = wrapped_zip_path
-
+            dwg = wrapped_zip_path
             output_path = (outputs_dir / f"{clean_stem}{suffix}.zip").resolve()
         else:
             output_path = target_out
+
+        # Session-isolated mapping sheet path
+        mapping_path = None
+        raw_m = payload.get("mapping_path")
+        if action_name == "finalize" and raw_m and Path(str(raw_m)).is_file():
+            mapping_path = Path(str(raw_m)).resolve()
+        else:
+            mapping_path = (session_dir / "Client_Mapping_Sheet.xlsx").resolve()
 
         return cls(
             base_dir=base,
             dwg=dwg,
             registry=Path(str(payload.get("registry_path") or base / "Master_Registry.xlsx")).resolve(),
-            mapping=Path(str(payload.get("mapping_path") or base / "Client_Mapping_Sheet.xlsx")).resolve(),
+            mapping=mapping_path,
             output=output_path,
             groups=base / "autocad_groups.csv",
             large_groups=base / "large_groups.csv",
@@ -173,6 +199,7 @@ class WorkflowPaths:
             original_dwg=orig_dwg,
             target_dwg_output=target_dwg_out,
             target_pdf_output=target_pdf_out,
+            session_id=session_id,
         )
 
     def public(self) -> dict[str, str]:
@@ -183,6 +210,8 @@ class WorkflowPaths:
                 d["pdf"] = str(self.target_pdf_output)
             if self.original_dwg:
                 d["dwg"] = str(self.original_dwg)
+        if self.session_id:
+            d["session_id"] = self.session_id
         return d
 
 
@@ -199,8 +228,10 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
     if not paths.dwg.is_file():
         raise FileNotFoundError(f"ZIP package file not found: {paths.dwg}")
 
-    session_id = uuid.uuid4().hex[:8]
-    work_dir = paths.base_dir / ".runtime" / "zip_workdir" / session_id
+    session_id = paths.session_id or uuid.uuid4().hex[:12]
+    session_dir = (paths.base_dir / ".runtime" / "sessions" / session_id).resolve()
+    session_dir.mkdir(parents=True, exist_ok=True)
+    work_dir = session_dir / "work"
     if work_dir.exists():
         shutil.rmtree(work_dir, ignore_errors=True)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -268,32 +299,34 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
                     "block": block
                 })
 
-    manifest_path = work_dir / "zip_manifest.json"
+    manifest_path = session_dir / "zip_manifest.json"
+    session_data = {
+        "session_id": session_id,
+        "manifest_path": str(manifest_path.resolve()),
+        "dwg_files": dwg_manifest,
+        "unique_tags": unique_tags,
+        "extract_dir": str(extract_dir.resolve()),
+        "is_wrapped_dwg": paths.is_wrapped_dwg,
+        "original_dwg": str(paths.original_dwg) if paths.original_dwg else None,
+        "target_dwg_output": str(paths.target_dwg_output) if paths.target_dwg_output else None,
+        "target_pdf_output": str(paths.target_pdf_output) if paths.target_pdf_output else None,
+        "wrapped_zip": str(paths.dwg) if paths.is_wrapped_dwg else None,
+        "mapping_path": str(paths.mapping.resolve()),
+    }
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "session_id": session_id,
-            "dwg_files": dwg_manifest,
-            "unique_tags": unique_tags,
-            "extract_dir": str(extract_dir.resolve()),
-            "is_wrapped_dwg": paths.is_wrapped_dwg,
-            "original_dwg": str(paths.original_dwg) if paths.original_dwg else None,
-            "target_dwg_output": str(paths.target_dwg_output) if paths.target_dwg_output else None,
-            "target_pdf_output": str(paths.target_pdf_output) if paths.target_pdf_output else None,
-            "wrapped_zip": str(paths.dwg) if paths.is_wrapped_dwg else None,
-        }, f, indent=2)
+        json.dump(session_data, f, indent=2)
+
+    session_meta = session_dir / "session.json"
+    with open(session_meta, "w", encoding="utf-8") as f:
+        json.dump(session_data, f, indent=2)
 
     curr_session_file = paths.base_dir / ".runtime" / "current_zip_session.json"
     curr_session_file.parent.mkdir(parents=True, exist_ok=True)
     with open(curr_session_file, "w", encoding="utf-8") as f:
-        json.dump({
-            "session_id": session_id,
-            "manifest_path": str(manifest_path.resolve()),
-            "is_wrapped_dwg": paths.is_wrapped_dwg,
-            "original_dwg": str(paths.original_dwg) if paths.original_dwg else None,
-            "target_dwg_output": str(paths.target_dwg_output) if paths.target_dwg_output else None,
-            "target_pdf_output": str(paths.target_pdf_output) if paths.target_pdf_output else None,
-            "wrapped_zip": str(paths.dwg) if paths.is_wrapped_dwg else None,
-        }, f, indent=2)
+        json.dump(session_data, f, indent=2)
+
+    curr_ptr = paths.base_dir / ".runtime" / "current_session_id.txt"
+    curr_ptr.write_text(session_id, encoding="utf-8")
 
     mapping_rows = []
     for tag in sorted(unique_tags.keys()):
@@ -309,7 +342,7 @@ def prepare_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print) 
         worksheet.column_dimensions["A"].hidden = True
 
     log(f"03  Creating deduplicated mapping sheet with {len(unique_tags)} unique tag(s) across {len(dwg_files)} drawing(s).")
-    return {"mapping_rows": len(unique_tags), "phase": "mapping_ready", "paths": paths.public()}
+    return {"mapping_rows": len(unique_tags), "phase": "mapping_ready", "paths": paths.public(), "session_id": session_id}
 
 
 def get_pdf_rel_path(rel_path: str, staging_dir: Path | None = None) -> str:
@@ -347,12 +380,28 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
     from update_connected import update_connected_pids
 
     _validate_workflow(workflow)
+    session_id = paths.session_id
+    session_dir = (paths.base_dir / ".runtime" / "sessions" / session_id).resolve() if session_id else None
+    session_meta = (session_dir / "session.json") if session_dir else None
     curr_session_file = paths.base_dir / ".runtime" / "current_zip_session.json"
-    if not curr_session_file.is_file():
-        raise FileNotFoundError("ZIP session metadata not found. Please re-run Prepare Mapping.")
 
-    with open(curr_session_file, "r", encoding="utf-8") as f:
-        sess_info = json.load(f)
+    sess_info = None
+    if session_meta and session_meta.is_file():
+        try:
+            with open(session_meta, "r", encoding="utf-8") as f:
+                sess_info = json.load(f)
+        except Exception:
+            pass
+
+    if not sess_info and curr_session_file.is_file():
+        try:
+            with open(curr_session_file, "r", encoding="utf-8") as f:
+                sess_info = json.load(f)
+        except Exception:
+            pass
+
+    if not sess_info:
+        raise FileNotFoundError("ZIP session metadata not found. Please re-run Prepare Mapping.")
 
     manifest_path = Path(sess_info["manifest_path"])
     if not manifest_path.is_file():
@@ -415,8 +464,21 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
         reg_df = pd.read_excel(wf_dwg_registry, sheet_name="Connected Elements")
         dwg_updates_count = 0
 
+        master_df = pd.read_excel(wf_dwg_registry, sheet_name="Master Registry")
+        master_lookup = {
+            str(r.get("Unique ID", "")): str(r.get("Subtype / Block Name", ""))
+            for _, r in master_df.iterrows()
+        } if not master_df.empty and "Unique ID" in master_df.columns else {}
+
         for conn_idx, row in reg_df.iterrows():
             block = str(row.get("Asset Subtype/Block", ""))
+            placeholder_block = str(row.get("Placeholder Subtype/Block", ""))
+            if not placeholder_block:
+                p_id = str(row.get("Placeholder ID", ""))
+                placeholder_block = master_lookup.get(p_id, "")
+
+            target_block = placeholder_block or block
+
             asset_value = row.get("Asset Content/Value", "")
             placeholder_value = row.get("Placeholder Content", "")
             source_tag = unpack_tag(asset_value, block)
@@ -429,7 +491,7 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
                     reg_df.at[conn_idx, "Placeholder Content"] = formatted_tag
                     reg_df.at[conn_idx, "Asset Content/Value"] = formatted_tag
                 else:
-                    formatted_tag = format_mapping(mapped_client_tag, placeholder_value, block)
+                    formatted_tag = format_mapping(mapped_client_tag, placeholder_value, target_block)
                     reg_df.at[conn_idx, "Mapping Status"] = "VALID_MATCH"
                     reg_df.at[conn_idx, "Placeholder Content"] = formatted_tag
 
@@ -528,11 +590,28 @@ def finalize_workflow_zip(workflow: str, paths: WorkflowPaths, log: Log = print)
 
         if matching_dwgs:
             target_dwg.parent.mkdir(parents=True, exist_ok=True)
+            for ext in (".dwl", ".dwl2"):
+                lf = target_dwg.with_suffix(ext)
+                if lf.is_file():
+                    try:
+                        lf.unlink()
+                    except Exception:
+                        pass
+            if target_dwg.is_file():
+                try:
+                    target_dwg.unlink()
+                except Exception:
+                    pass
             shutil.copy2(matching_dwgs[0], target_dwg)
             log(f"Extracted updated DWG: {target_dwg.name}")
 
         if matching_pdfs and target_pdf:
             target_pdf.parent.mkdir(parents=True, exist_ok=True)
+            if target_pdf.is_file():
+                try:
+                    target_pdf.unlink()
+                except Exception:
+                    pass
             shutil.copy2(matching_pdfs[0], target_pdf)
             log(f"Extracted plotted PDF: {target_pdf.name}")
 
@@ -637,12 +716,30 @@ def finalize_workflow(workflow: str | list[str], paths: WorkflowPaths, log: Log 
 
         pub_paths = paths.public()
         pub_paths["outputs"] = outputs
-        clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=False)
+        clean_workspace_artifacts(paths.base_dir, preserve_mapping=False, preserve_registry=False)
+        if paths.mapping and paths.mapping.is_file():
+            try:
+                paths.mapping.unlink()
+            except Exception:
+                pass
+        if paths.session_id:
+            s_dir = paths.base_dir / ".runtime" / "sessions" / paths.session_id
+            if s_dir.is_dir():
+                shutil.rmtree(s_dir, ignore_errors=True)
         return {"mapped_rows": mapped_rows, "phase": "complete", "paths": pub_paths, "outputs": outputs}
     else:
         wf = workflows[0]
         res = finalize_workflow_zip(wf, paths, log)
-        clean_workspace_artifacts(paths.base_dir, preserve_mapping=True, preserve_registry=False)
+        clean_workspace_artifacts(paths.base_dir, preserve_mapping=False, preserve_registry=False)
+        if paths.mapping and paths.mapping.is_file():
+            try:
+                paths.mapping.unlink()
+            except Exception:
+                pass
+        if paths.session_id:
+            s_dir = paths.base_dir / ".runtime" / "sessions" / paths.session_id
+            if s_dir.is_dir():
+                shutil.rmtree(s_dir, ignore_errors=True)
         return res
 
 
@@ -789,6 +886,11 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
         pdf_command = ""
         if pdf_path is not None:
             pdf_path.parent.mkdir(parents=True, exist_ok=True)
+            if pdf_path.is_file():
+                try:
+                    pdf_path.unlink()
+                except Exception:
+                    pass
             pdf_lisp = pdf_path.as_posix().replace('"', '\\"')
             pdf_command = f'(command "._-PLOT" "Y" "" "AutoCAD PDF (General Documentation).pc3" "ANSI A (8.50 x 11.00 Inches)" "I" "L" "N" "E" "F" "C" "Y" "." "Y" "N" "N" "N" "{pdf_lisp}" "N" "Y") '
 
@@ -844,6 +946,14 @@ def _run_attsync_com(drawing: Path, script: Path, log: Log, pdf_path: Path | Non
         # Note: We intentionally do NOT call acad.Quit() between individual drawings in a batch.
         # Closing the drawing via document.Close(False) leaves the AutoCAD engine warm and quiescent,
         # preventing race conditions and RPC_E_CALL_REJECTED errors on subsequent drawings.
+        for ext in (".dwl", ".dwl2"):
+            lock_f = drawing.with_suffix(ext)
+            if lock_f.is_file():
+                try:
+                    lock_f.unlink()
+                except Exception:
+                    pass
+
         try:
             marker.unlink(missing_ok=True)
         except Exception as exc:

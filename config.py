@@ -54,6 +54,26 @@ BLOCK_RULES_LEGEND = {
         "is_block": False,
         "instrument": False,
     },
+    "MULTILEADER": {
+        "target_attribute": "TEXT",
+        "is_block": False,
+        "instrument": False,
+    },
+    "block36": {
+        "target_attribute": "PIPE REF",
+        "is_block": True,
+        "instrument": False,
+    },
+    "block31": {
+        "target_attribute": "PIPE REF",
+        "is_block": True,
+        "instrument": False,
+    },
+    "G-CableID": {
+        "target_attribute": "TAG1",
+        "is_block": True,
+        "instrument": False,
+    },
 }
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
@@ -68,7 +88,7 @@ ODA_EXEC_PATH = os.environ.get(
 PLACEHOLDER_RULES = {
     "empty_is_placeholder": True,
     "case_sensitive": False,
-    "contains": ["CLIENT"],
+    "contains": ["CLIENT", "TBC", "INVALID"],
     "regex": [r"X{3,}"],
 }
 

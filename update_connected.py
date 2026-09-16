@@ -45,12 +45,27 @@ def _split_tag_at_first_dash(raw_str: str) -> Tuple[str, str]:
     text = str(raw_str).strip()
     if not text:
         return "", ""
-    
+
     # If it's stored as a dictionary representation string, extract values if possible
     if text.startswith("{") and text.endswith("}"):
         try:
             d = ast.literal_eval(text)
             if isinstance(d, dict):
+                # Prioritize explicit TOP / BTM keys
+                if "TOP" in d or "BTM" in d:
+                    top = str(d.get("TOP") or "")
+                    btm = str(d.get("BTM") or "")
+                    if _is_placeholder(btm) and d.get("TXT2") and not _is_placeholder(str(d.get("TXT2"))):
+                        btm = str(d["TXT2"])
+                    return top, btm
+                # Prioritize explicit TXT1 / TXT2 keys
+                if "TXT1" in d or "TXT2" in d:
+                    top = str(d.get("TXT1") or "")
+                    btm = str(d.get("TXT2") or "")
+                    if _is_placeholder(btm) and d.get("BTM") and not _is_placeholder(str(d.get("BTM"))):
+                        btm = str(d["BTM"])
+                    return top, btm
+
                 vals = [str(v) for v in d.values() if v is not None and str(v).strip() != ""]
                 if len(vals) >= 2:
                     return vals[0], vals[1]
@@ -103,6 +118,11 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
     updates_applied = 0
 
     for idx, row in df_connections.iterrows():
+        # Only update entities that were explicitly mapped in this run
+        status = str(row.get("Mapping Status", "")).strip().upper()
+        if status not in ("VALID_MATCH", "VALID_OVERWRITE"):
+            continue
+
         targets = []
         p_id = str(row.get("Placeholder ID", ""))
         p_val = str(row.get("Placeholder Content", ""))
@@ -131,84 +151,99 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
 
             matched = False
             if target_cat == "Block Reference":
-                if "target_attributes" in rule:
-                    target_attr_tags = [str(t).upper() for t in rule["target_attributes"]]
-                else:
-                    target_attr_tags = [str(rule.get("target_attribute", "")).upper()]
-
-                for insert in msp.query("INSERT"):
-                    ins_name = getattr(insert, "effective_name", insert.dxf.name)
-                    name_match = (ins_name == target_sub or insert.dxf.name == target_sub)
-                    if not name_match and insert.has_attrib:
-                        for attr in insert.attribs:
-                            if attr.dxf.tag.upper() in target_attr_tags:
-                                name_match = True
+                # Check if block definition contains embedded TEXT to update (e.g. line tag like 219-PG-C1C5-X050)
+                blk_def = doc.blocks.get(target_sub)
+                if blk_def:
+                    for be in blk_def:
+                        if be.dxftype() in ('TEXT', 'MTEXT'):
+                            t = _clean_text(be.dxf.text if be.dxftype() == 'TEXT' else be.text)
+                            if t and not any(coord in t.upper() for coord in ('EL.', 'N.', 'E.', 'W.')):
+                                if be.dxftype() == 'TEXT':
+                                    be.dxf.text = actual_source_text
+                                else:
+                                    be.text = actual_source_text
+                                updates_applied += 1
+                                matched = True
                                 break
 
+                if not matched:
+                    if "target_attributes" in rule:
+                        target_attr_tags = [str(t).upper() for t in rule["target_attributes"]]
+                    else:
+                        target_attr_tags = [str(rule.get("target_attribute", "")).upper()]
 
-                    if name_match and insert.has_attrib:
-                        coords = insert.dxf.insert or (0.0, 0.0, 0.0)
-                        if abs(float(coords[0]) - target_x) < 0.01 and abs(float(coords[1]) - target_y) < 0.01:
-                            
-                            attrib_map = {}
+                    for insert in msp.query("INSERT"):
+                        ins_name = getattr(insert, "effective_name", insert.dxf.name)
+                        name_match = (ins_name == target_sub or insert.dxf.name == target_sub)
+                        if not name_match and insert.has_attrib:
                             for attr in insert.attribs:
-                                attrib_map[attr.dxf.tag.upper()] = attr
+                                if attr.dxf.tag.upper() in target_attr_tags:
+                                    name_match = True
+                                    break
 
-                            if is_instrument:
-                                new_top, new_btm = _split_tag_at_first_dash(actual_source_text)
-                                block_rotation = insert.dxf.rotation or 0.0
-
-                                # Apply to TOP attributes
-                                for tag_name in ["TOP", "TXT1"]:
-                                    if tag_name in attrib_map and attrib_map[tag_name]:
-                                        attr = attrib_map[tag_name]
-                                        attr.dxf.text = new_top
-                                        attr.dxf.rotation = block_rotation
-                                        updates_applied += 1
-
-                                # Apply to BTM attributes
-                                for tag_name in ["BTM", "TXT2"]:
-                                    if tag_name in attrib_map and attrib_map[tag_name]:
-                                        attr = attrib_map[tag_name]
-                                        attr.dxf.text = new_btm
-                                        attr.dxf.rotation = block_rotation
-                                        updates_applied += 1
-                            else:
-                                # Standard block attribute update
-                                attr_dict = {}
-                                if actual_source_text.startswith("{") and actual_source_text.endswith("}"):
-                                    try:
-                                        parsed_dict = ast.literal_eval(actual_source_text)
-                                        if isinstance(parsed_dict, dict):
-                                            attr_dict = parsed_dict
-                                    except Exception:
-                                        pass
-
+                        if name_match and insert.has_attrib:
+                            coords = insert.dxf.insert or (0.0, 0.0, 0.0)
+                            if abs(float(coords[0]) - target_x) < 0.01 and abs(float(coords[1]) - target_y) < 0.01:
+                                
+                                attrib_map = {}
                                 for attr in insert.attribs:
-                                    tag_upper = attr.dxf.tag.upper()
-                                    for t_tag in target_attr_tags:
-                                        if tag_upper == t_tag.upper():
-                                            new_val = actual_source_text
-                                            if attr_dict:
-                                                for k, v in attr_dict.items():
-                                                    if k.upper() == tag_upper:
-                                                        new_val = str(v)
-                                                        break
-                                            
-                                            attr.dxf.text = new_val
-                                            updates_applied += 1
-                                            break
+                                    attrib_map[attr.dxf.tag.upper()] = attr
 
-                            matched = True
+                                if is_instrument:
+                                    new_top, new_btm = _split_tag_at_first_dash(actual_source_text)
+                                    block_rotation = insert.dxf.rotation or 0.0
+
+                                    # Apply to TOP attributes
+                                    for tag_name in ["TOP", "TXT1"]:
+                                        if tag_name in attrib_map and attrib_map[tag_name]:
+                                            attr = attrib_map[tag_name]
+                                            attr.dxf.text = new_top
+                                            attr.dxf.rotation = block_rotation
+                                            updates_applied += 1
+
+                                    # Apply to BTM attributes
+                                    for tag_name in ["BTM", "TXT2"]:
+                                        if tag_name in attrib_map and attrib_map[tag_name]:
+                                            attr = attrib_map[tag_name]
+                                            attr.dxf.text = new_btm
+                                            attr.dxf.rotation = block_rotation
+                                            updates_applied += 1
+                                else:
+                                    # Standard block attribute update
+                                    attr_dict = {}
+                                    if actual_source_text.startswith("{") and actual_source_text.endswith("}"):
+                                        try:
+                                            parsed_dict = ast.literal_eval(actual_source_text)
+                                            if isinstance(parsed_dict, dict):
+                                                attr_dict = parsed_dict
+                                        except Exception:
+                                            pass
+
+                                    for attr in insert.attribs:
+                                        tag_upper = attr.dxf.tag.upper()
+                                        for t_tag in target_attr_tags:
+                                            if tag_upper == t_tag.upper():
+                                                new_val = actual_source_text
+                                                if attr_dict:
+                                                    for k, v in attr_dict.items():
+                                                        if k.upper() == tag_upper:
+                                                            new_val = str(v)
+                                                            break
+                                                
+                                                attr.dxf.text = new_val
+                                                updates_applied += 1
+                                                break
+
+                                matched = True
+                                break
+                        if matched:
                             break
-                    if matched:
-                        break
 
             elif target_cat == "Text/Label":
                 for entity in msp:
                     if entity.dxftype() in ('TEXT', 'MTEXT'):
                         insert = entity.dxf.insert
-                        if abs(float(insert.x) - target_x) < 0.01 and abs(float(insert.y) - target_y) < 0.01:
+                        if abs(float(insert.x) - target_x) < 0.05 and abs(float(insert.y) - target_y) < 0.05:
                             new_val = actual_source_text
                             
                             if entity.dxftype() == 'TEXT':
@@ -218,6 +253,17 @@ def update_connected_pids(dwg_path: str, excel_path: str, output_dwg_path: str, 
                             updates_applied += 1
                             matched = True
                             break
+                    elif entity.dxftype() == 'MULTILEADER':
+                        pt = entity.context.base_point if (entity.context and entity.context.base_point) else None
+                        if pt is not None:
+                            px = float(pt.x) if hasattr(pt, 'x') else float(pt[0])
+                            py = float(pt.y) if hasattr(pt, 'y') else float(pt[1])
+                            if abs(px - target_x) < 0.05 and abs(py - target_y) < 0.05:
+                                if entity.context and entity.context.mtext:
+                                    entity.context.mtext.default_content = str(actual_source_text)
+                                updates_applied += 1
+                                matched = True
+                                break
 
     print(f"Total elements updated: {updates_applied}")
     if freeze_dual:

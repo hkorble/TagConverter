@@ -1733,6 +1733,13 @@
         badge.className = `tag-badge seq-rule-badge ${isResolved ? 'badge-ready' : 'badge-pending'}`;
         badge.textContent = r.sequence_name;
         tdSeq.appendChild(badge);
+        if (r.has_adder && r.adder) {
+          const adderBadge = document.createElement('span');
+          adderBadge.style.cssText = 'display: inline-block; margin-top: 0.25rem; font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 500;';
+          adderBadge.textContent = `+ Adder: "${r.adder}"`;
+          tdSeq.appendChild(document.createElement('br'));
+          tdSeq.appendChild(adderBadge);
+        }
         tr.appendChild(tdSeq);
 
         // Client Translation Template

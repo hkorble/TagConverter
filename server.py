@@ -4,6 +4,7 @@ import argparse
 import json
 import mimetypes
 import os
+import shutil
 import subprocess
 import threading
 import traceback
@@ -14,12 +15,48 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from config import PLACEHOLDER_RULES, WORKFLOW_CONFIG
+from workflow_common import clean_workspace_artifacts
 from workflow_engine import WorkflowPaths, finalize_workflow, prepare_workflow
 
 ROOT = Path(__file__).resolve().parent
 UI_DIST = ROOT / "tag-operations-ui" / "dist"
 RUNS: dict[str, dict[str, object]] = {}
 RUNS_LOCK = threading.Lock()
+
+
+def wipe_transient_files() -> None:
+    """Wipe transient mapping sheets, old session files, and temp artifacts to prevent stale tags from persisting."""
+    clean_workspace_artifacts(ROOT, preserve_mapping=False, preserve_registry=False)
+    transient_files = [
+        ROOT / "Client_Mapping_Sheet.xlsx",
+        ROOT / ".runtime" / "current_zip_session.json",
+        ROOT / "autocad_groups.csv",
+        ROOT / "large_groups.csv",
+        ROOT / "Master_Registry.xlsx",
+        ROOT / "Testing Drawings" / "Client_Mapping_Sheet.xlsx",
+    ]
+    for f in transient_files:
+        try:
+            if f.is_file():
+                f.unlink()
+        except Exception:
+            pass
+
+    # Clean any session mappings and staging directories in .runtime
+    for sub in ("session_mappings", "wrapped_zips", "zip_workdir", "sessions"):
+        sdir = ROOT / ".runtime" / sub
+        if sdir.is_dir():
+            shutil.rmtree(sdir, ignore_errors=True)
+
+    # Clean old mapping sheets in Downloads folder that could be accidentally picked up
+    downloads_dir = Path.home() / "Downloads"
+    if downloads_dir.is_dir():
+        for dl_file in downloads_dir.glob("Scovan_Client_Mapping_Sheet*.*"):
+            try:
+                if dl_file.is_file():
+                    dl_file.unlink()
+            except Exception:
+                pass
 
 
 import ctypes
@@ -138,8 +175,12 @@ def _run_job(run_id: str, action: str, payload: dict[str, object]) -> None:
     try:
         workflow = str(payload.get("workflow", "dual_tagging"))
         payload["action"] = action
+        if action == "prepare":
+            wipe_transient_files()
         paths = WorkflowPaths.from_payload(payload)
         result = (prepare_workflow if action == "prepare" else finalize_workflow)(workflow, paths, log)
+        if action == "finalize":
+            wipe_transient_files()
         with RUNS_LOCK:
             RUNS[run_id].update({"status": "complete", "result": result})
     except Exception as exc:
@@ -463,6 +504,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    wipe_transient_files()
     parser = argparse.ArgumentParser(description="Run the local Tag Operations frontend")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
