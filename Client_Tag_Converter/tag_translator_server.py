@@ -18,6 +18,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import importlib
+import sys
+import os
+
+# Ensure the directory containing this server script is always on sys.path
+# so that local modules (CNOOC_mapping, Scovan_Mapping, tag_translation_engine)
+# are importable regardless of the working directory.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
 import CNOOC_mapping
 import Scovan_Mapping
 import tag_translation_engine as tte
